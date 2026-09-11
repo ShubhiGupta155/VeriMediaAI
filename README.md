@@ -1,112 +1,118 @@
-VeriMedia AI: A Multimodal AI System for Digital Media Forensics and Authenticity Analysis
-1. Problem Statement
+# VeriMedia AI
 
-The rapid growth of generative AI and advanced editing technologies has made it increasingly difficult to distinguish authentic digital media from AI-generated, manipulated, or synthetically altered content.
+## A Multimodal AI System for Digital Media Forensics and Authenticity Analysis
 
-Images, videos, and audio can now be modified using techniques such as:
+## 1. Problem Statement
 
-AI image generation
-Face swapping
-Deepfakes
-Voice cloning
-Audio manipulation
-Lip-sync manipulation
-Generative image editing
+The rapid growth of Generative AI and advanced editing technologies has made it difficult to distinguish authentic digital media from AI-generated or manipulated content.
 
-Traditional verification methods often focus on a single type of media or a single forensic indicator. However, modern manipulated media can contain subtle artifacts that may not be detected reliably by one detector alone.
+Modern technologies can create or modify:
 
-Therefore, there is a need for a multimodal digital media forensic system that can analyze different types of evidence and combine them to provide a more reliable authenticity assessment.
+* AI-generated images
+* Deepfake videos
+* Face-swapped videos
+* Synthetic or cloned voices
+* Manipulated audio
+* Lip-sync manipulated videos
+* AI-edited photographs
 
-2. Project Objective
+A single detection method may not always provide reliable results. Therefore, VeriMedia AI aims to analyze multiple forensic signals and combine them to provide an evidence-based assessment of media authenticity.
 
-The main objective of VeriMedia AI is to develop an AI-assisted digital media forensic system capable of analyzing images, videos, and audio to estimate the likelihood that the media has been manipulated or synthetically generated.
+---
+
+## 2. Project Objective
+
+The main objective of VeriMedia AI is to develop an AI-assisted digital media forensic system that can analyze images, videos, and audio to estimate the likelihood of manipulation or synthetic generation.
 
 The system aims to:
 
-Detect AI-generated and manipulated images
-Analyze videos for deepfake and manipulation indicators
-Detect synthetic or cloned speech
-Analyze audio-video synchronization
-Identify suspicious regions, frames, and timestamps
-Combine evidence from multiple forensic modules
-Provide an evidence-based authenticity assessment
-Generate understandable forensic explanations using DeepSeek
-Produce a structured forensic analysis report
-Evaluate whether multimodal analysis improves detection reliability compared with single-modality analysis
-3. Research Question
+* Detect AI-generated images
+* Detect manipulated images
+* Analyze videos for deepfake indicators
+* Detect synthetic or cloned speech
+* Analyze audio-video synchronization
+* Identify suspicious image regions
+* Identify suspicious video frames and timestamps
+* Combine evidence from multiple forensic modules
+* Provide an evidence-based authenticity assessment
+* Generate human-readable forensic explanations
+* Generate structured forensic reports
+* Evaluate whether multimodal analysis performs better than single-modality analysis
 
-The primary research question of this project is:
+---
 
-Does combining multiple forensic modalities provide a more reliable digital media authenticity assessment than analyzing a single modality?
+## 3. Research Question
 
-The project will experimentally compare:
+The primary research question of VeriMedia AI is:
 
-Image/visual-only analysis
-Audio-only analysis
-Visual + Audio analysis
-Visual + Audio + Lip-Sync analysis
-Different evidence-fusion strategies
+> Does combining multiple forensic modalities provide a more reliable digital media authenticity assessment than analyzing a single modality?
 
-The systems will be evaluated using metrics such as:
+The project will compare:
 
-Accuracy
-Precision
-Recall
-F1-score
-ROC-AUC
-False Positive Rate
-False Negative Rate
+* Visual-only analysis
+* Audio-only analysis
+* Visual + Audio analysis
+* Visual + Audio + Lip-Sync analysis
+* Different evidence-fusion strategies
 
-The goal is to determine whether combining independent forensic signals can improve the robustness and reliability of digital media authenticity assessment.
+The system will be evaluated using:
 
-4. System Architecture
+* Accuracy
+* Precision
+* Recall
+* F1-score
+* ROC-AUC
+* False Positive Rate
+* False Negative Rate
 
-The proposed VeriMedia AI architecture follows a modular multimodal forensic pipeline:
+The research will determine whether combining multiple independent forensic signals can improve the reliability and robustness of digital media authenticity assessment.
 
-User Upload → Media Identification → Preprocessing → Specialized Forensic Analysis → Evidence Extraction → Multimodal Fusion → Risk Assessment → DeepSeek Explanation → Forensic Report
+---
 
-High-Level Architecture
-                    ┌─────────────────────┐
-                    │      User Upload    │
-                    │   Image / Video /   │
-                    │       Audio         │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Media Processing   │
-                    │   & Preprocessing    │
-                    └──────────┬──────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-              ▼                ▼                ▼
-       ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-       │   Image     │  │   Video     │  │   Audio     │
-       │  Forensics  │  │  Forensics  │  │  Forensics  │
-       └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
-              │                │                │
-              │                ▼                │
-              │         ┌─────────────┐         │
-              │         │ Lip-Sync    │         │
-              │         │  Analysis   │         │
-              │         └──────┬──────┘         │
-              │                │                │
-              └────────────────┼────────────────┘
-                               ▼
-                    ┌─────────────────────┐
-                    │   Evidence Fusion   │
-                    │  & Risk Assessment  │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │ DeepSeek Explanation│
-                    │   & Report Layer     │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Final Forensic    │
-                    │       Report        │
-                    └─────────────────────┘
+## 4. System Architecture
+
+The proposed VeriMedia AI pipeline follows this workflow:
+
+**User Upload → Media Identification → Preprocessing → Specialized Forensic Analysis → Evidence Extraction → Multimodal Fusion → Risk Assessment → DeepSeek Explanation → Final Forensic Report**
+
+### High-Level Architecture
+
+```text
+User Upload
+     |
+     v
+Media Identification
+     |
+     v
+Preprocessing
+     |
+     +-------------------+-------------------+
+     |                   |                   |
+     v                   v                   v
+Image Forensics     Video Forensics     Audio Forensics
+     |                   |                   |
+     |                   v                   |
+     |              Lip-Sync Analysis       |
+     |                   |                   |
+     +-------------------+-------------------+
+                         |
+                         v
+                 Evidence Fusion
+                         |
+                         v
+                  Risk Assessment
+                         |
+                         v
+                DeepSeek Explanation
+                         |
+                         v
+                 Forensic Report
+```
+
+### Core Principle
+
+DeepSeek is **not the primary detection model**.
+
+The specialized forensic modules perform the actual analysis and generate evidence. DeepSeek receives the structured forensic evidence and converts it into a clear, human-readable explanation and report.
+
+This modular architecture allows each component to be developed, tested, evaluated, and improved independently.
