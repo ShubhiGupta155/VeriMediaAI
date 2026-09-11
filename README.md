@@ -662,7 +662,7 @@ Future versions may include:
 
 **Project:** VeriMedia AI
 
-**Project Type:** B.Tech / B.E. Major Project
+**Project Type:** B.Tech 
 
 **Team Size:** 4 Members
 
