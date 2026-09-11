@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment variables / secrets
+.env
+
+# Uploaded media
+uploads/
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.mp4
+*.avi
+*.mov
+*.wav
+*.mp3
+
+# Generated results
+results/
+reports/
+
+# Downloaded ML models
+models/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
