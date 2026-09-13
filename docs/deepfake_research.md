@@ -1,632 +1,182 @@
-# Deepfake Detection Research & Recommendations
+# Deepfake Detection Model Research & Baseline Specification
 
-**Document Version**: 1.0  
-**Date**: 2026-09-11  
-**Project**: VeriMediaAI Video Forensics Module  
-**Scope**: Baseline deepfake detection for frame-level analysis
+**Project:** VeriMedia AI — Video Forensics (Member 2)
+**Scope:** Step 5B — Frame-Level Deepfake Detector
+**Document Type:** Implementation-focused research rationale and baseline specification
 
 ---
 
 ## 1. Research Objective
 
-Determine the most suitable datasets and pretrained model approaches for detecting AI-generated manipulations (deepfakes) in video for the VeriMediaAI project. The goal is to select a practical baseline model suitable for:
-
-- Frame-level deepfake detection
-- Integration with existing video frame extraction and face detection pipelines
-- Running on CPU/GPU with reasonable inference speed
-- Implementation in Python 3.13 with PyTorch/Transformers ecosystem
-- Eventual integration into a multimodal forensic analysis application
+Establish a verified, reproducible deepfake detection baseline for the video forensics pipeline. The detector operates on face crops extracted from video frames, outputting binary classification scores (real vs. fake) to feed downstream temporal and timestamp analysis modules.
 
 ---
 
-## 2. Dataset Comparison
+## 2. Dataset Selection
 
-| **Dataset** | **Scale** | **Content Types** | **Real:Fake** | **Frame-Level Labels** | **Compression** | **Access** | **Training Suitable** | **Evaluation Suitable** | **Project Fit** |
-|---|---|---|---|---|---|---|---|---|---|
-| **FaceForensics++** | 1000 orig + 1.8M manipulated images | DeepFakes, Face2Face, FaceSwap, NeuralTextures | Balanced | ✓ Yes (extraction provided) | Multiple levels | Form submission | ✓✓✓ Excellent | ✓✓✓ Excellent | ✓✓✓ Excellent |
-| **Celeb-DF** | 590 real videos + 5,639 deepfakes | High-quality deepfakes (DeepFaceLab) | Imbalanced | ✓ Yes (per-frame labels) | Low compression | Direct download | ✓✓ Good | ✓✓ Good | ✓✓ Good |
-| **DFDC** | 100K+ clips from 3,426 actors | Multiple GAN methods, DeepFakes | Balanced | ✓ Yes | Multiple levels | Form submission | ✓✓✓ Excellent | ✓✓✓ Excellent | ✓✓✓ Excellent |
-| **DeeperForensics-1.0** | ~250K videos (60M frames) | Multiple methods + obscuring techniques | Balanced | ✓ Yes | Multiple levels | Form submission | ✓✓✓ Excellent (challenging) | ✓✓ Good | ✓✓ Good (advanced) |
+| Dataset | Size | Manipulation Methods | Primary Advantage | Limitation | Selected Role |
+|---|---|---|---|---|---|
+| **FaceForensics++ (FF++)** | 1,000 sequences (1.8M+ frames) | DeepFakes, Face2Face, FaceSwap, NeuralTextures | Canonical benchmark; multi-compression splits (c0, c23, c40) | Older manipulation methods | **Primary Baseline** |
+| **DFDC** | 128,154 clips (100k+ actors) | Diverse/unspecified generative methods | Massive scale, diverse lighting | Variable quality; unstructured access | Future cross-dataset test |
+| **Celeb-DF (v2)** | 5,639 high-res videos | High-quality DeepFake synthesis | Reduced visual artifacts | Single manipulation type | Future evaluation |
+| **DeeperForensics-1.0** | 60,000 videos | Real-world perturbation models | Perturbation benchmark | High dataset footprint | Out of scope |
 
-### Dataset Details
-
-#### FaceForensics++ (Recommended)
-- **Manipulation Types**: 4 methods (DeepFakes, Face2Face, FaceSwap, NeuralTextures)
-- **Scale**: 1000 original YouTube videos + ~1.8 million manipulated images
-- **Real vs Manipulated**: 50/50 split (balanced)
-- **Frame Labels**: Yes, binary manipulation labels per frame
-- **Compression Levels**: c0 (no compression), c23 (YouTube compression), c40 (heavy compression)
-- **Availability**: Form-based access via TUM/Google servers
-- **Licensing**: Custom FaceForensics Terms of Use (non-commercial research primarily)
-- **Training Suitability**: ✓✓✓ Excellent - large scale, multiple methods, frame-level labels
-- **Evaluation Suitability**: ✓✓✓ Excellent - public benchmark available at kaldir.vc.in.tum.de
-- **Project Alignment**: Ideal baseline - well-established, proven results, good generalization
-- **Citation**: Rössler et al., ICCV 2019 (https://arxiv.org/abs/1901.08971)
-
-#### Celeb-DF (Alternative)
-- **Manipulation Types**: High-quality DeepFaceLab deepfakes only
-- **Scale**: 590 real celebrity videos + 5,639 synthetic videos
-- **Real vs Manipulated**: Imbalanced (590:5639 = 1:9.5)
-- **Frame Labels**: Yes, with per-frame authenticity scores
-- **Compression**: Low compression (high quality)
-- **Availability**: Direct download from GitHub
-- **Licensing**: Restricted academic use
-- **Training Suitability**: ✓✓ Good - high-quality deepfakes but single method
-- **Evaluation Suitability**: ✓✓ Good - specific to DeepFaceLab variants
-- **Project Alignment**: Good supplementary dataset, limited to one generation method
-- **Citation**: Li et al., CVPR 2020
-
-#### DFDC (Excellent Alternative)
-- **Manipulation Types**: Multiple (DeepFakes, StyleGAN, FaceShifter, etc.)
-- **Scale**: 100K+ clips from 3,426 professional actors
-- **Real vs Manipulated**: Balanced
-- **Frame Labels**: Yes, video-level labels with frame-level inference possible
-- **Compression**: Multiple levels provided
-- **Availability**: Form-based access via Facebook AI
-- **Licensing**: DFDC Terms of Use (research access)
-- **Training Suitability**: ✓✓✓ Excellent - largest scale, diverse generation methods
-- **Evaluation Suitability**: ✓✓✓ Excellent - associated Kaggle competition with public leaderboard
-- **Project Alignment**: Excellent for production-ready models, diverse real-world scenarios
-- **Citation**: Dolhansky et al., CVPR 2021 (https://arxiv.org/abs/2006.07397)
-
-#### DeeperForensics-1.0 (Advanced)
-- **Manipulation Types**: Multiple methods with adversarial obscuring (blur, noise, etc.)
-- **Scale**: ~250K videos, ~60M frames
-- **Real vs Manipulated**: Balanced
-- **Frame Labels**: Yes, with difficulty/obfuscation levels
-- **Compression**: Multiple levels with degradation simulation
-- **Availability**: Form-based access
-- **Licensing**: Research use with attribution
-- **Training Suitability**: ✓✓✓ Excellent (but harder training problem)
-- **Evaluation Suitability**: ✓✓ Good - tests robustness and generalization
-- **Project Alignment**: Good for advanced/production models, not ideal for baseline
-- **Citation**: Li et al., ECCV 2020
-
-### Dataset Recommendation
-**Primary**: FaceForensics++ with DFDC as secondary for comparison  
-**Rationale**: FaceForensics++ offers the best balance of:
-- Established benchmark with proven results
-- Multiple manipulation methods (not single-technique overfitting)
-- Comprehensive evaluation framework
-- Good frame-level label availability
-- Strong community adoption and research publications
+**Selection Rationale:** FaceForensics++ is the standard reference benchmark across computer vision literature. It provides clean, standardized manipulation splits and published baseline weights directly comparable with peer-reviewed research.
 
 ---
 
-## 3. Model/Approach Comparison
+## 3. Model Selection
 
-| **Approach** | **Method** | **Input** | **Frame-Level** | **Pretrained Weights** | **Inference Speed (fp32)** | **GPU Memory** | **Compatibility** | **Accuracy (FF++)** | **Generalization** | **Project Fit** |
-|---|---|---|---|---|---|---|---|---|---|---|
-| **Xception (FaceForensics++)** | Transfer learning CNN | Face crop (256×256) | ✓ Yes | ✓ Available | 10-15ms | 2GB | ✓ PyTorch | 99.7% c23 | ✓✓ Good | ✓✓✓ Best |
-| **EfficientNet-B4** | Efficient CNN architecture | Face crop (256×256) | ✓ Yes | ✓ Available (torchvision) | 5-8ms | 1.5GB | ✓ PyTorch | 97-99% | ✓✓ Good | ✓✓✓ Good |
-| **MesoNet** | Compact deepfake-specific CNN | Face crop (256×256) | ✓ Yes | ✓ Available | 3-5ms | 512MB | ✓ Keras/PyTorch | 98% deepfake | ✓ Limited | ✓✓ Lightweight |
-| **Vision Transformer (ViT)** | Transformer-based vision | Face crop (224×224) | ✓ Yes | ✓ Available (HF) | 20-30ms | 4GB | ✓ PyTorch/Transformers | 97-98% | ✓✓✓ Excellent | ✓✓ Good |
-| **3D CNN** | Temporal video models (I3D) | Video clips (16 frames) | ✗ Video-level | ✓ Available | 30-50ms | 3-4GB | ✓ PyTorch | 98-99% | ✓✓✓ Excellent | ✓ Moderate |
-| **Ensemble** | Multiple models combined | Face crop | ✓ Yes | ✓ Available | 50-100ms | 4-6GB | ✓ PyTorch | 99%+ | ✓✓✓ Excellent | ✓ Complex |
+| Model Family | Architecture | Input Resolution | Published Benchmark Performance | Key Advantage | Selected Role |
+|---|---|---|---|---|---|
+| **Xception (FF++)** | 71-layer depthwise separable CNN | 299×299 | ~99.26% binary acc on FF++ c23 (ICCV 2019 Table 3) | Canonical reference baseline; verified architecture | **Selected Baseline** |
+| **EfficientNet-B4** | Compound scaling CNN | 256×256 | ~99.1% AUC on FF++ c23 (DeepfakeBench) | Slightly faster CPU inference | Phase 2 alternative |
+| **MesoNet** | 4-layer compact CNN | 256×256 | ~85–90% on compressed video | Lightweight footprint | Lower accuracy |
+| **Vision Transformer (ViT)** | Self-attention patch model | 224×224 | ~97–98% on benchmark data | Global context modeling | High compute / GPU dependent |
+| **3D CNN / Temporal** | I3D / Spatio-temporal | Multi-frame clips | Variable | Models inter-frame flicker | Deferred to Step 5C |
 
-### Model Details
-
-#### Xception (FaceForensics++) - **RECOMMENDED BASELINE**
-- **Architecture**: Depthwise separable convolutions, 71 layers
-- **Input Format**: Single face crop (256×256 RGB)
-- **Detection Approach**: 
-  - Frame-level binary classification (real vs manipulated)
-  - Binary cross-entropy loss
-  - Trained on 1.8M+ manipulated images
-- **Pretrained Weights**: Available from FaceForensics++ GitHub
-  - Models for different compression levels (c0, c23, c40)
-  - Face-crop version (recommended for pipeline integration)
-- **Inference Speed**: 10-15ms per frame (CPU), 2-3ms per frame (GPU)
-- **GPU Memory**: ~2GB (manageable on modern GPUs)
-- **CPU/GPU Requirements**: Works on both, GPU recommended
-- **Accuracy on FaceForensics++**: 99.7% on c23 (YouTube compression)
-- **Generalization**: Good across multiple methods (DeepFakes, Face2Face, FaceSwap)
-- **Python/PyTorch Compatibility**: ✓ Excellent (PyTorch implementation available)
-- **Integration Ease**: ✓✓✓ Excellent
-  - Takes single frame from face_detector.py output
-  - Returns confidence score
-  - No temporal dependencies
-  - Straightforward preprocessing
-- **Advantages**:
-  - Peer-reviewed, ICCV 2019 publication
-  - Proven benchmark performance
-  - Face-crop compatible with face detection pipeline
-  - Good generalization across methods
-  - Public pretrained weights
-- **Limitations**:
-  - May struggle with very heavy compression
-  - Single-frame only (doesn't use temporal info)
-  - Requires face detection as preprocessing
-
-#### EfficientNet-B4 (Alternative Baseline)
-- **Architecture**: Mobile-oriented CNN with compound scaling
-- **Input Format**: Single face crop (256×256 RGB)
-- **Detection Approach**: Binary classification (real vs fake)
-- **Pretrained Weights**: Available from torchvision
-- **Inference Speed**: 5-8ms per frame (faster than Xception)
-- **Accuracy on FaceForensics++**: 97-99% (depending on training)
-- **Python/PyTorch Compatibility**: ✓ Excellent (torchvision/timm)
-- **Integration Ease**: ✓✓✓ Excellent
-- **Advantages**:
-  - Faster inference than Xception
-  - Better efficiency (parameters vs accuracy)
-  - Available in multiple sizes (B0-B7)
-- **Disadvantages**:
-  - Less proven on deepfake detection than Xception
-  - May need fine-tuning for optimal results
-
-#### MesoNet (Lightweight Alternative)
-- **Architecture**: Compact CNN with inception-like modules, ~2.7M parameters
-- **Input Format**: Single face crop (256×256 RGB)
-- **Detection Approach**: 
-  - Two variants: MesoInception4 and MesoRESNET4
-  - Binary classification with softmax
-  - Trained on face-only crops
-- **Pretrained Weights**: Available on GitHub
-  - Separate models for DeepFakes and Face2Face
-  - Trained on aligned face dataset
-- **Inference Speed**: 3-5ms per frame (very fast)
-- **GPU Memory**: ~512MB (very lightweight)
-- **Accuracy**: 98% on deepfakes, 95% on Face2Face
-- **Generalization**: Limited (specialized per method)
-- **Python/PyTorch Compatibility**: ✓ Good (Keras originally, PyTorch ports available)
-- **Integration Ease**: ✓✓ Good (simple model, clear input/output)
-- **Advantages**:
-  - Very lightweight and fast
-  - Low memory footprint
-  - Good for resource-constrained environments
-  - Published and peer-reviewed (WIFS 2018)
-- **Disadvantages**:
-  - Limited to single methods (needs separate model per technique)
-  - Lower generalization than Xception
-  - Not as actively maintained as FaceForensics++ models
-- **Citation**: Afchar et al., IEEE WIFS 2018 (https://arxiv.org/abs/1809.00888)
-
-#### Vision Transformer (ViT) - Advanced
-- **Architecture**: Pure transformer architecture, 86M parameters (ViT-B/16)
-- **Input Format**: Face crop split into patches (224×224 → 196 patches of 16×16)
-- **Detection Approach**: Transformer-based sequence modeling with classification head
-- **Pretrained Weights**: Available from Hugging Face (timm, transformers)
-- **Inference Speed**: 20-30ms per frame (slower than CNNs)
-- **GPU Memory**: 4-6GB (higher than CNNs)
-- **Accuracy on FaceForensics++**: 97-98% (often requires fine-tuning)
-- **Generalization**: ✓✓✓ Excellent (learns more general features)
-- **Python/PyTorch Compatibility**: ✓✓✓ Excellent (HuggingFace/timm integration)
-- **Integration Ease**: ✓✓ Moderate (requires patch-based preprocessing)
-- **Advantages**:
-  - Excellent generalization and transfer learning
-  - State-of-the-art results when properly trained
-  - Scalable architecture
-  - Good theoretical foundation
-- **Disadvantages**:
-  - Slower inference than CNN baselines
-  - Higher computational requirements
-  - Requires more training data for good results
-  - More complex to integrate
-
-#### 3D/Temporal Models (I3D, R3D) - Advanced
-- **Architecture**: 3D convolutions that process video clips (not single frames)
-- **Input Format**: Stacked frames (16-32 frames as 3D input)
-- **Detection Approach**: Video-level classification (not frame-level)
-- **Inference Speed**: 30-50ms per clip
-- **Accuracy on FaceForensics++**: 98-99%
-- **Generalization**: ✓✓✓ Excellent (leverages temporal coherence artifacts)
-- **Integration Ease**: ✗ Difficult
-  - Requires video clip buffering
-  - Outputs video-level predictions (not frame-level)
-  - More complex integration with existing pipeline
-- **Advantages**:
-  - Uses temporal information (deepfakes have temporal artifacts)
-  - Excellent accuracy
-  - Strongest generalization to unseen methods
-- **Disadvantages**:
-  - Incompatible with current frame-extraction pipeline
-  - Would require pipeline redesign
-  - Higher latency (processes 16-frame clips)
-  - More memory intensive
-- **Assessment for Phase 1**: Better for Phase 2 enhancements
+**Selection Rationale:** FaceForensics++ Xception is selected as the primary baseline. It provides direct academic comparability, proven single-frame face-crop classification, and a verified structural specification without introducing complex temporal dependencies before Step 5C.
 
 ---
 
-## 4. Recommended Baseline Model
+## 4. Exact Xception Baseline
 
-### Primary Recommendation: **Xception (FaceForensics++)**
+The baseline uses the genuine Chollet / FaceForensics++ 71-layer Xception architecture (`modules/video/network/xception.py`), rejecting simplified ad-hoc CNN variants (`XceptionLite`):
 
-**Why Xception is the Best Choice:**
-
-1. **Proven Effectiveness**
-   - 99.7% accuracy on FaceForensics++ benchmark
-   - Multiple ICCV 2019 citations and continued adoption
-   - Extensive academic validation
-
-2. **Perfect Pipeline Integration**
-   - Takes single frame from face detector → direct input
-   - Binary output (real/fake probability) → easy downstream use
-   - No temporal buffering needed
-   - Works with existing frame extraction pipeline
-
-3. **Practical Performance**
-   - 10-15ms inference (acceptable for video analysis)
-   - 2GB GPU memory (manageable)
-   - Runs on CPU if needed (slower but possible)
-
-4. **Data Availability**
-   - Public pretrained weights from FaceForensics++ repository
-   - Multiple compression-specific models available
-   - Established training procedure documented
-
-5. **Generalization**
-   - Detects multiple methods (not overfitted to single technique)
-   - Good cross-dataset performance
-   - Handles real-world compression variations
-
-6. **Maintenance & Support**
-   - Active research community
-   - Well-documented baseline
-   - PyTorch ecosystem compatibility
-
-### Secondary Recommendation: **EfficientNet-B4** (Performance Alternative)
-- Use if speed is critical
-- Slightly lower accuracy but faster inference (5-8ms)
-- Good fallback option
-
-### Tertiary Recommendation: **MesoNet** (Resource-Constrained Alternative)
-- Use if memory/power is severely limited
-- Fastest inference (3-5ms)
-- Note: May need separate models for different manipulation techniques
-
-### Future Enhancement: **Vision Transformer or Ensemble**
-- Implement in Phase 2 after baseline validation
-- Better generalization to new deepfake methods
-- Requires more computational resources
+* **Entry Flow:**
+  * `conv1`: `Conv2d(3, 32, kernel=3, stride=2)` + `BatchNorm2d` + ReLU
+  * `conv2`: `Conv2d(32, 64, kernel=3)` + `BatchNorm2d` + ReLU
+  * `block1`–`block3`: 3 residual blocks expanding channels ($64 \to 128 \to 256 \to 728$) with stride 2 and $1 \times 1$ conv skip projections.
+* **Middle Flow:**
+  * Exactly 8 identical residual blocks (`block4` through `block11`), each operating at 728 channels with 3 repetitions of `SeparableConv2d` and stride 1.
+* **Exit Flow:**
+  * `block12`: Residual block expanding $728 \to 1024$ channels with stride 2.
+  * `conv3`: `SeparableConv2d(1024, 1536, kernel=3)` + `BatchNorm2d` + ReLU.
+  * `conv4`: `SeparableConv2d(1536, 2048, kernel=3)` + `BatchNorm2d`.
+* **Classification Head:**
+  * Global adaptive average pooling to $(1, 1)$, flattened to a **2048-dimensional** feature vector.
+  * Linear classification head: `self.last_linear = nn.Linear(2048, 2)` outputting logits for real and fake classes.
+* **Parameter Count:** Exactly **20,811,050** trainable parameters.
 
 ---
 
-## 5. Expected Input/Output Format
+## 5. Preprocessing Contract
 
-### Input Format
+Implemented in `DeepfakeModel.preprocess()` matching the FaceForensics++ test specification:
+
+1. **Resolution:** Bilinear interpolation to strictly **`299 × 299`** pixels (`cv2.INTER_LINEAR`).
+2. **Color Space:** Convert OpenCV BGR to RGB (`cv2.cvtColor(image, cv2.COLOR_BGR2RGB)`).
+3. **Floating Point Scaling:** Cast to float32 and scale from $[0, 255]$ to $[0.0, 1.0]$.
+4. **Normalization:** Apply FaceForensics++ mean and standard deviation:
+   $$\text{normalized} = \frac{\text{image} - 0.5}{0.5}$$
+   Mapping pixel values strictly into the interval **$[-1.0, 1.0]$**. (ImageNet normalization is rejected).
+5. **Tensor Format:** Transposed to $CHW$, unsqueezed with batch dimension to $(1, 3, 299, 299)$, and transferred to target device (`cpu` or `cuda`).
+
+---
+
+## 6. Checkpoint Strategy
+
+* **Local Provisioning:** Pretrained model weights must be provided locally via file path.
+* **No Automatic Downloading:** No weights are fetched automatically during runtime or inference.
+* **No Random Production Fallback:** If the checkpoint is missing, a clear `FileNotFoundError` is raised. The system does not silently fall back to random weights for inference.
+* **Strict Loading:** PyTorch `load_state_dict` is executed with default strict matching to catch architectural mismatches.
+* **Backward Compatibility Shims:**
+  * PyTorch 0.4 pointwise weight reshaping: Reshapes 2D pointwise conv weights (`[out, in]`) to 4D (`[out, in, 1, 1]`) per FF++ reference code.
+  * Key normalization: Strips `model.` and `module.` prefixes and remaps `fc.` to `last_linear.`.
+  * Accepts full serialized `nn.Module` objects as well as nested dictionary wrappers.
+* **Status Notice:** The genuine FaceForensics++ checkpoint binary has **NOT yet been obtained or tested locally** (access requires formal terms-of-use submission to TUM).
+
+---
+
+## 7. Detector Interface
+
+Implemented in `modules/video/deepfake_detector.py`:
+
+### Public API
+```python
+load_deepfake_model(
+    model_path: Optional[Union[str, Path]] = None,
+    device: Optional[str] = None
+) -> Optional[DeepfakeModel]
+
+detect_deepfake(
+    face_crop: np.ndarray,
+    model: Optional[DeepfakeModel] = None,
+    device: Optional[str] = None
+) -> dict
+```
+
+### Output Schema
 ```python
 {
-    "frame": numpy.ndarray,         # BGR image (H, W, 3)
-    "frame_number": int,             # Original frame index
-    "timestamp_seconds": float,       # Time in video
-    "face_bbox": {                    # From face_detector.py
-        "x": int, "y": int,
-        "width": int, "height": int
-    }
+    "label": "real" | "fake",
+    "real_probability": float,       # Softmax score [0.0, 1.0], index 0
+    "fake_probability": float,       # Softmax score [0.0, 1.0], index 1
+    "confidence": float,             # max(real_prob, fake_prob)
+    "model": "xception_ff++"
 }
 ```
-
-### Processing Pipeline
-```
-Frame → Face Detection → Extract Face Crop → Resize to 256×256 
-→ Normalize → Xception → Binary Classification → Confidence Score
-```
-
-### Output Format
-```python
-{
-    "is_deepfake": float,            # Probability [0.0, 1.0]
-    "confidence": float,             # 1 - entropy (certainty measure)
-    "method": str,                   # "unknown" (single model limitation)
-    "frame_number": int,             # Preserved from input
-    "timestamp_seconds": float,       # Preserved from input
-}
-```
-
-**Note**: Single Xception model cannot identify specific method. For method identification, would need ensemble or method-specific models (Phase 2).
+*Note on Confidence:* `confidence` represents the raw maximum softmax probability. It is an uncalibrated model score, not a certified forensic confidence estimate.
 
 ---
 
-## 6. Integration Plan for `modules/video/deepfake_detector.py`
+## 8. Integration
 
-### Architecture Overview
+The module connects into the video forensics pipeline:
 ```
-Frame Input
+Video File
     ↓
-[Face Bounding Box Check]
+frame_extractor.py     → Frame array (BGR), frame number, timestamp
     ↓
-Extract Face Crop (1.3× scale, ~256×256)
+face_detector.py       → Face bounding boxes (x, y, w, h)
     ↓
-Preprocess (normalize per Xception expectations)
+[Crop Extraction]      → face_crop = frame[y:y+h, x:x+w]
     ↓
-[Load Pretrained Xception Model]
+deepfake_detector.py   → Frame-level real/fake softmax probabilities
     ↓
-Forward Pass (inference)
+temporal_analysis.py   → Time-series smoothing and anomaly detection (Step 5C)
     ↓
-Output: real/fake probability + confidence
+timestamp_analyzer.py  → Suspicious segment intervals (Step 5D)
     ↓
-Structured Result
-```
-
-### Implementation Strategy
-
-#### Phase 1A (Baseline - Current)
-1. **Load pretrained Xception weights** (FaceForensics++)
-   - Download from: http://kaldir.vc.in.tum.de/FaceForensics/models/faceforensics++_models.zip
-   - Use face-crop trained model (not full-image)
-   
-2. **Implement `detect_deepfake()` function**
-   ```python
-   def detect_deepfake(
-       frame: np.ndarray,
-       face_bbox: dict,
-       model_path: str,
-   ) -> dict
-   ```
-   - Input: frame + face location from face_detector
-   - Process: extract crop, normalize, inference
-   - Output: confidence scores
-
-3. **Handle edge cases**
-   - Invalid face bbox
-   - Face crop too small
-   - Model loading failures
-   - GPU/CPU fallback
-
-#### Phase 1B (Enhancement)
-1. Support multiple compression models (c0, c23, c40)
-2. Add uncertainty estimation
-3. Implement batch inference for efficiency
-4. Add preprocessing cache
-
-#### Phase 2 (Advanced)
-1. Implement ensemble (Xception + EfficientNet)
-2. Add Vision Transformer option
-3. Implement method classification
-4. Add temporal smoothing (using temporal_analysis.py)
-
-### Python Implementation Sketch
-
-```python
-import torch
-import numpy as np
-from torchvision import transforms
-from pathlib import Path
-
-class DeepfakeDetector:
-    def __init__(self, model_path: str):
-        """Load pretrained Xception model."""
-        self.model = load_xception_model(model_path)
-        self.model.eval()
-        
-    def detect_deepfake(
-        self,
-        frame: np.ndarray,
-        face_bbox: dict
-    ) -> dict:
-        """
-        Detect deepfake in frame given face location.
-        
-        Args:
-            frame: BGR image (H, W, 3)
-            face_bbox: {"x": int, "y": int, "width": int, "height": int}
-            
-        Returns:
-            {
-                "is_deepfake": float,  # [0, 1]
-                "confidence": float,
-                "frame_number": int,
-                "timestamp_seconds": float,
-            }
-        """
-        # Extract and preprocess face crop
-        crop = extract_face_crop(frame, face_bbox)
-        tensor = preprocess(crop)
-        
-        # Inference
-        with torch.no_grad():
-            logits = self.model(tensor)
-            probs = torch.softmax(logits, dim=1)
-        
-        fake_prob = probs[0, 1].item()
-        return {
-            "is_deepfake": fake_prob,
-            "confidence": max(probs[0]).item(),
-        }
+pipeline.py            → Orchestrated forensic report (Step 5E)
 ```
 
 ---
 
-## 7. Limitations and Risks
+## 9. Testing Status
 
-### Xception Baseline Limitations
+The automated test suite in `tests/test_video.py` reports:
+* **65 total tests collected**
+* **63 passed**
+* **2 skipped:**
+  1. `test_xception_cuda_execution_if_available`: Skipped because the execution environment lacks a CUDA GPU.
+  2. `test_real_checkpoint_load_and_predict`: Skipped conditionally because the official FaceForensics++ checkpoint file is not yet locally present.
 
-1. **Single-Frame Analysis**
-   - Cannot leverage temporal consistency
-   - May miss subtle temporal artifacts
-   - Vulnerable to single-frame adversarial perturbations
-
-2. **Compression Sensitivity**
-   - Trained primarily on YouTube-level compression (c23)
-   - Performance may degrade with heavy compression (c40)
-   - May struggle with low-compression deepfakes
-
-3. **Method Limitations**
-   - Cannot identify specific manipulation method
-   - All detections labeled "unknown" origin
-   - May be less effective on newer methods not seen during training
-
-4. **Face Detection Dependency**
-   - Requires accurate face detection to work
-   - Fails on non-frontal faces or extreme angles
-   - Sensitive to face crop quality
-
-5. **Generalization Challenges**
-   - May not generalize well to:
-     - New deepfake generation methods
-     - Different camera/lighting conditions
-     - Different ethnicities/demographics
-   - Potential fairness bias present in training data
-
-6. **Adversarial Vulnerability**
-   - Susceptible to adversarial examples
-   - Could be fooled by designed attacks
-   - No robustness testing in baseline
-
-### Project-Specific Risks
-
-1. **Data Access**
-   - FaceForensics++ requires form submission
-   - Access may be delayed or denied
-   - Fallback: Celeb-DF (easier access, smaller scope)
-
-2. **Performance Expectations**
-   - ~99% accuracy on benchmark ≠ real-world performance
-   - Test on diverse, in-the-wild videos for validation
-   - Expect lower accuracy on unseen methods
-
-3. **Computational Requirements**
-   - GPU recommended for batch processing
-   - CPU inference is possible but slow (~100-200ms/frame)
-   - Scaling to 1000s of videos requires optimization
-
-4. **Legal/Ethical Considerations**
-   - FaceForensics++ uses non-commercial license
-   - Deepfakes dataset licensing restrictions
-   - Consider privacy implications of video analysis
-
-### Mitigation Strategies
-
-1. **Phase 2: Temporal Models**
-   - Implement 3D CNN or temporal smoothing
-   - Capture temporal artifacts
-
-2. **Phase 2: Ensemble Methods**
-   - Combine multiple models
-   - Better generalization
-
-3. **Phase 2: Adversarial Robustness**
-   - Fine-tune on diverse datasets
-   - Add robustness testing
-
-4. **Phase 2: Method Classification**
-   - Train classifiers for each method
-   - Better interpretability
-
-5. **Continuous Evaluation**
-   - Test on new deepfake datasets (DFDC, DeeperForensics)
-   - Monitor accuracy over time
-   - Update model as new methods emerge
+*Methodological Distinction:* Unit and integration tests instantiate the full Xception architecture with synthetic/temporary weights to verify tensor shapes, preprocessing math, device handling, and interface contracts. **These tests do NOT establish real-world deepfake detection accuracy.**
 
 ---
 
-## 8. Alternative Approaches Not Recommended for Phase 1
+## 10. Limitations
 
-### Why NOT 3D/Video Models (Phase 1)
-- ✗ Requires redesign of frame extraction pipeline
-- ✗ Video-level (not frame-level) predictions
-- ✗ Higher latency (processes 16-frame clips)
-- ✓ Better left for Phase 2 after baseline validation
-
-### Why NOT Ensemble (Phase 1)
-- ✗ Unnecessary complexity for baseline
-- ✗ 3-5× slower inference
-- ✗ Harder to debug and maintain
-- ✓ Good for Phase 2 production model
-
-### Why NOT Proprietary APIs
-- ✗ No control over model updates
-- ✗ Privacy concerns with cloud uploads
-- ✗ Cost and latency issues
-- ✗ Not suitable for forensic application
+1. **Single-Frame Spatial Scope:** Evaluates crops independently; cannot capture temporal incoherence, jitter, or frame boundary inconsistencies (handled downstream in Step 5C).
+2. **Face Detector Dependency:** Occlusion, extreme angles, or severe blur that prevent face detection will bypass deepfake analysis.
+3. **Cross-Dataset Generalization:** Published benchmarks indicate performance degrades on unseen manipulation techniques (e.g., modern diffusion models) and heavy compression ($c40$).
+4. **Uncalibrated Probabilities:** Output probabilities reflect raw softmax distributions and require cautious interpretation in forensic contexts.
 
 ---
 
-## 9. Sources and References
+## 11. References
 
-### Datasets
-1. **FaceForensics++**: Rössler et al. (2019). "FaceForensics++: Learning to Detect Manipulated Facial Images"
-   - Paper: https://arxiv.org/abs/1901.08971
-   - Repository: https://github.com/ondyari/FaceForensics
-   - Benchmark: http://kaldir.vc.in.tum.de/faceforensics_benchmark/
-
-2. **Celeb-DF**: Li et al. (2020). "Celeb-DF: A Large-scale Challenging Dataset for DeepFake Forensics"
-   - Repository: https://github.com/yuezunli/celeb-df
-
-3. **DFDC**: Dolhansky et al. (2020). "The DeepFake Detection Challenge (DFDC) Dataset"
-   - Paper: https://arxiv.org/abs/2006.07397
-   - Dataset: https://ai.facebook.com/datasets/dfdc
-
-4. **DeeperForensics**: Li et al. (2020). "DeeperForensics-1.0: A Large-Scale Dataset for Real-World Deepfake Detection"
-   - Paper: https://arxiv.org/abs/2001.00529
-
-### Models & Methods
-1. **Xception for Deepfake Detection**: From FaceForensics++ classification code
-   - Repository: https://github.com/ondyari/FaceForensics/tree/master/classification
-   - Pretrained models: http://kaldir.vc.in.tum.de/FaceForensics/models/
-
-2. **MesoNet**: Afchar et al. (2018). "MesoNet: a Compact Facial Video Forgery Detection Network"
-   - Paper: https://arxiv.org/abs/1809.00888
-   - Repository: https://github.com/DariusAf/MesoNet
-
-3. **Vision Transformers**: Dosovitskiy et al. (2021). "An Image is Worth 16x16 Words"
-   - Paper: https://arxiv.org/abs/2010.11929
-   - Implementations: HuggingFace transformers, timm (torch-image-models)
-
-4. **EfficientNet**: Tan & Le (2019). "EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks"
-   - Paper: https://arxiv.org/abs/1905.11946
-   - Implementations: torchvision, timm
-
-### Related Work
-- Harisinghani et al. (2021). "Deep Transfer Learning for Multiple Class Novelty Detection"
-- Chollet (2017). "Xception: Deep Learning with Depthwise Separable Convolutions"
-- Wang et al. (2021). "FaceForensics++: Learning to Detect Manipulated Facial Images" (Extended benchmarking)
-
-### Standards & Benchmarks
-- NIST deepfake detection standards (in development)
-- Media Forensics 2022+ challenges
-- IEEE Information Forensics and Security (WIFS) community standards
+* **FaceForensics++:** Rössler et al., *"FaceForensics++: Learning to Detect Manipulated Facial Images"*, ICCV 2019. [arXiv:1901.08971](https://arxiv.org/abs/1901.08971).
+* **Xception:** Chollet, F., *"Xception: Deep Learning with Depthwise Separable Convolutions"*, CVPR 2017. [arXiv:1610.02357](https://arxiv.org/abs/1610.02357).
+* **FaceForensics Repository:** [https://github.com/ondyari/FaceForensics](https://github.com/ondyari/FaceForensics).
+* **DeepfakeBench:** Yan et al., *"DeepfakeBench: A Comprehensive Benchmark of Deepfake Detection"*, NeurIPS 2023. [arXiv:2307.01426](https://arxiv.org/abs/2307.01426).
 
 ---
 
-## 10. Next Steps
+## 12. Current Status & Next Steps
 
-### Before Implementation (Phase 1A)
-- [ ] Access FaceForensics++ dataset (submit form)
-- [ ] Review FaceForensics++ classification code
-- [ ] Download pretrained Xception weights
-- [ ] Verify PyTorch/OpenCV compatibility with Python 3.13
-- [ ] Set up test environment with sample frames
-
-### Implementation (Phase 1A)
-- [ ] Implement `modules/video/deepfake_detector.py`
-- [ ] Create unit tests for detector
-- [ ] Test with real video frames
-- [ ] Validate pipeline integration with face_detector
-- [ ] Benchmark inference time and memory usage
-
-### Validation (Phase 1B)
-- [ ] Test on FaceForensics++ validation set
-- [ ] Test on real in-the-wild deepfakes
-- [ ] Evaluate across different compression levels
-- [ ] Test false positive/negative rates
-
-### Phase 2 (Future Enhancement)
-- [ ] Implement ensemble methods
-- [ ] Add Vision Transformer option
-- [ ] Implement temporal analysis integration
-- [ ] Add adversarial robustness testing
-- [ ] Implement method classification
-
----
-
-## 11. Conclusion
-
-**Selected Baseline: Xception (FaceForensics++)**
-
-This recommendation balances:
-- **Accuracy**: 99.7% on standardized benchmark
-- **Integration**: Perfect fit with existing pipeline (frame → face crop → classification)
-- **Practicality**: Manageable computational requirements
-- **Maintenance**: Active research community, proven approach
-- **Scalability**: Easy to extend to ensemble methods in Phase 2
-
-The architecture supports frame-level analysis as needed for the multimodal forensic pipeline, with clear upgrade path to more sophisticated temporal models and ensemble methods when needed.
-
-**Recommended Dataset**: FaceForensics++ for baseline training and validation, with DFDC as supplementary validation dataset for robustness assessment.
-
----
-
-**Document Status**: Ready for Phase 1A Implementation  
-**Approval Required**: Team review before model download and implementation
+* **Architecture:** Full 71-layer FaceForensics++ Xception implemented in `modules/video/network/xception.py`.
+* **Detector:** Preprocessing, inference wrapper, and caching implemented in `modules/video/deepfake_detector.py`.
+* **Verification:** 63 automated tests passing.
+* **Pending:** Submission of FaceForensics++ access form to TUM, downloading of official c23 weights, and quantitative benchmark evaluation.
