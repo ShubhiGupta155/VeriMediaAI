@@ -1,6 +1,8 @@
 import streamlit as st
 from PIL import Image
-from modules.image_detector import analyze_image
+from modules.image.pipeline import analyze_image
+import tempfile
+from pathlib import Path
 
 
 # ============================================================
@@ -420,7 +422,18 @@ if page == "Analyze Media":
                 # REAL MODEL
                 # =================================================
 
-                result = analyze_image(image)
+                # REAL MODEL
+                # REAL MODEL — Member 1 Image Forensics Pipeline
+                suffix = Path(uploaded_file.name).suffix or ".jpg"
+
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                  temp_file.write(uploaded_file.getvalue())
+                  temp_image_path = temp_file.name
+
+                result = analyze_image(
+                  temp_image_path,
+                generate_heatmap=True
+               )
 
 
                 progress.progress(85)
@@ -435,27 +448,85 @@ if page == "Analyze Media":
                 # EXTRACT RESULT
                 # -------------------------------------------------
 
-                prediction = result["prediction"]
+                prediction = result["ai_detection"]["predicted_label"]
 
-                ai_probability = result[
-                    "ai_probability"
-                ]
+                ai_probability = result["ai_detection"]["ai_generated_probability"]
+                real_probability = result["ai_detection"]["real_probability"]
 
-                real_probability = result[
-                    "real_probability"
-                ]
-
-
-                ai_percentage = (
-                    ai_probability * 100
-                )
-
-                real_percentage = (
-                    real_probability * 100
-                )
-
+                ai_percentage = ai_probability * 100
+                real_percentage = real_probability * 100
 
                 progress.progress(100)
+                                # -------------------------------------------------
+                # FORENSIC INDICATORS
+                # -------------------------------------------------
+
+                metadata = result["metadata"]
+                compression = result["compression"]
+                noise = result["noise"]
+                frequency = result["frequency"]
+
+                st.subheader("🔬 Image Forensic Indicators")
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric(
+                        "Image Format",
+                        metadata["format"]
+                    )
+                    st.metric(
+                        "Resolution",
+                        f'{metadata["width"]} × {metadata["height"]}'
+                    )
+
+                with col2:
+                    st.metric(
+                        "File Size",
+                        f'{metadata["file_size_bytes"]:,} bytes'
+                    )
+                    st.metric(
+                        "Noise Std.",
+                        f'{noise["noise_std"]:.2f}'
+                    )
+
+                with col3:
+                    st.metric(
+                        "High-Frequency Ratio",
+                        f'{frequency["high_frequency_ratio"]:.2%}'
+                    )
+                    st.metric(
+                        "JPEG Quantization",
+                        "Detected"
+                        if compression["jpeg_quantization_tables"]
+                        else "Not detected"
+                    )
+
+                # -------------------------------------------------
+                # SUPPORTING EVIDENCE
+                # -------------------------------------------------
+
+                st.subheader("📋 Supporting Forensic Evidence")
+
+                evidence_items = []
+
+                evidence_items.extend(
+                    compression.get("evidence", [])
+                )
+
+                evidence_items.extend(
+                    noise.get("evidence", [])
+                )
+
+                evidence_items.extend(
+                    frequency.get("evidence", [])
+                )
+
+                if evidence_items:
+                    for item in evidence_items:
+                        st.write(f"• {item}")
+                else:
+                    st.info("No supporting forensic indicators available.")
 
 
                 status.success(
@@ -475,84 +546,70 @@ if page == "Analyze Media":
                 )
 
 
-                if prediction == "AI-generated":
+                                # -------------------------------------------------
+                # FORENSIC ASSESSMENT
+                # -------------------------------------------------
 
-                    assessment = (
-                        "Likely AI-generated"
-                    )
+                if ai_probability >= 0.80:
 
+                    assessment = "High AI-generation likelihood"
+                    icon = "⚠️"
+
+                elif ai_probability >= 0.50:
+
+                    assessment = "Elevated AI-generation likelihood"
                     icon = "⚠️"
 
                 else:
 
-                    assessment = (
-                        "Likely authentic"
-                    )
-
+                    assessment = "Lower AI-generation likelihood"
                     icon = "✅"
-
-
-                # -------------------------------------------------
+                                # -------------------------------------------------
                 # METRIC CARDS
                 # -------------------------------------------------
 
                 c1, c2, c3 = st.columns(3)
 
-
                 with c1:
-
                     st.markdown(
                         f"""
                         <div class="metric-card">
-
                             <div class="metric-title">
                                 AI-Generation Score
                             </div>
-
                             <div class="metric-value">
                                 {ai_percentage:.1f}%
                             </div>
-
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
 
-
                 with c2:
-
                     st.markdown(
                         f"""
                         <div class="metric-card">
-
                             <div class="metric-title">
                                 Real-Image Score
                             </div>
-
                             <div class="metric-value">
                                 {real_percentage:.1f}%
                             </div>
-
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
 
-
                 with c3:
-
                     st.markdown(
                         f"""
                         <div class="metric-card">
-
                             <div class="metric-title">
                                 Assessment
                             </div>
-
                             <div class="metric-value">
                                 {icon} {assessment}
                             </div>
-
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -592,28 +649,32 @@ if page == "Analyze Media":
                 if ai_probability >= 0.80:
 
                     interpretation = (
-                        "The detector produced a high "
-                        "AI-generation score. The image "
-                        "contains patterns that the model "
-                        "associates with synthetic imagery."
+                        "The image received a high AI-generation "
+                        "score from the baseline detector. This "
+                        "indicates that the model identified "
+                        "patterns associated with synthetic imagery. "
+                        "Additional forensic evidence is required "
+                        "before making a final authenticity decision."
                     )
 
                 elif ai_probability >= 0.50:
 
                     interpretation = (
-                        "The detector produced an elevated "
-                        "AI-generation score. The result is "
-                        "ambiguous and should be interpreted "
-                        "with additional forensic evidence."
+                        "The image received an elevated AI-generation "
+                        "score from the baseline detector. This result "
+                        "should be treated as an indicator rather than "
+                        "proof of AI generation and should be evaluated "
+                        "alongside other forensic evidence."
                     )
 
                 else:
 
                     interpretation = (
-                        "The detector produced a relatively "
-                        "low AI-generation score. The image "
-                        "is more consistent with the real-image "
-                        "class according to this model."
+                        "The image received a relatively low "
+                        "AI-generation score from the baseline detector. "
+                        "The result is more consistent with the "
+                        "real-image class according to this model, "
+                        "but it does not by itself prove authenticity."
                     )
 
 
@@ -646,6 +707,46 @@ if page == "Analyze Media":
                     """,
                     unsafe_allow_html=True
                 )
+                                # =================================================
+                # FORENSIC RESIDUAL HEATMAP
+                # =================================================
+
+                explainability = result.get("explainability")
+
+                if explainability:
+
+                    st.markdown(
+                        "### 🗺️ Forensic Residual Heatmap"
+                    )
+
+                    heatmap_path = explainability.get(
+                        "heatmap_path"
+                    )
+
+                    if heatmap_path and Path(heatmap_path).exists():
+
+                        st.image(
+                            heatmap_path,
+                            caption=(
+                                "Residual heatmap showing regions "
+                                "with stronger local residual activity."
+                            ),
+                            use_container_width=True
+                        )
+
+                        st.info(
+                            "⚠️ This visualization highlights "
+                            "local noise/residual activity. It is "
+                            "supporting forensic evidence and should "
+                            "not be interpreted as proof of AI "
+                            "generation or manipulation."
+                        )
+
+                    else:
+
+                        st.warning(
+                            "Forensic heatmap could not be generated."
+                        )
 
 
                 # =================================================
