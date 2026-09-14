@@ -76,3 +76,9 @@ def analyze_image(image_path, generate_heatmap=False, heatmap_path=None):
         )
 
     return result
+# Evaluation note:
+# The current noise, frequency, compression, and AI-detector outputs
+# are baseline forensic indicators. Their thresholds and probabilities
+# have not yet been quantitatively calibrated against the VeriMedia AI
+# evaluation dataset. Dataset-based evaluation and calibration are
+# planned as a subsequent research/evaluation stage.

@@ -426,15 +426,22 @@ if page == "Analyze Media":
                 # REAL MODEL — Member 1 Image Forensics Pipeline
                 suffix = Path(uploaded_file.name).suffix or ".jpg"
 
-                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-                  temp_file.write(uploaded_file.getvalue())
-                  temp_image_path = temp_file.name
+                with tempfile.NamedTemporaryFile(
+                    delete=False,
+                    suffix=suffix
+                ) as temp_file:
+                    temp_file.write(uploaded_file.getvalue())
+                    temp_image_path = temp_file.name
 
-                result = analyze_image(
-                  temp_image_path,
-                generate_heatmap=True
-               )
-
+                try:
+                    result = analyze_image(
+                        temp_image_path,
+                        generate_heatmap=True
+                    )
+                finally:
+                    Path(temp_image_path).unlink(
+                        missing_ok=True
+                    )
 
                 progress.progress(85)
 
@@ -549,9 +556,10 @@ if page == "Analyze Media":
                                 # -------------------------------------------------
                 # FORENSIC ASSESSMENT
                 # -------------------------------------------------
-
+                # Initial heuristic thresholds for UI interpretation.
+                # These values are not calibrated forensic probabilities
+                # and must be validated against the project evaluation dataset.
                 if ai_probability >= 0.80:
-
                     assessment = "High AI-generation likelihood"
                     icon = "⚠️"
 

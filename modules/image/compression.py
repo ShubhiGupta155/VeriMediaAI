@@ -45,7 +45,7 @@ def analyze_compression(image_path):
                 result["jpeg_quantization_tables"] = True
 
                 result["evidence"].append(
-                    "JPEG quantization tables are present."
+                "JPEG quantization tables are present; this is a normal file characteristic."
                 )
 
             # Compare file size with image dimensions.
