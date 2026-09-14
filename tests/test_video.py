@@ -15,6 +15,7 @@ from modules.video.deepfake_detector import (
     DeepfakeModel,
 )
 from modules.video.network.xception import Xception
+from modules.video.temporal_analysis import analyze_temporal_consistency
 
 
 class TestVideoMetadataExtraction:
@@ -908,6 +909,177 @@ class TestVideoPipelineIntegration:
                     assert "fake_probability" in result
                     assert "confidence" in result
                     assert result["model"] == "xception_ff++"
+
+
+class TestTemporalAnalysis:
+    """Test suite for temporal video deepfake consistency analysis."""
+
+    def test_empty_predictions(self):
+        """Empty input returns graceful status and empty structures."""
+        res = analyze_temporal_consistency([])
+        assert res["total_predictions"] == 0
+        assert res["status"] == "empty"
+        assert res["suspicious_segments"] == []
+        assert res["is_temporally_suspicious"] is False
+        assert len(res["evidence"]) > 0
+
+    def test_single_prediction(self):
+        """Single prediction handled without division-by-zero or indexing errors."""
+        preds = [{
+            "frame_number": 0,
+            "timestamp_seconds": 0.0,
+            "fake_probability": 0.20,
+            "real_probability": 0.80,
+            "label": "real",
+        }]
+        res = analyze_temporal_consistency(preds)
+        assert res["total_predictions"] == 1
+        assert res["status"] == "complete"
+        assert len(res["smoothed_probabilities"]) == 1
+        assert res["smoothed_probabilities"][0] == 0.20
+        assert res["temporal_variance"] == 0.0
+        assert res["mean_absolute_derivative"] == 0.0
+        assert res["is_temporally_suspicious"] is False
+
+    def test_sustained_suspicious_segment(self):
+        """A contiguous sequence of high fake probabilities creates a suspicious segment."""
+        # 10 frames sampled at 1s intervals; frames 3..7 are deepfake
+        preds = []
+        for i in range(10):
+            is_fake = 3 <= i <= 7
+            p_fake = 0.88 if is_fake else 0.12
+            preds.append({
+                "frame_number": i * 30,
+                "timestamp_seconds": float(i),
+                "fake_probability": p_fake,
+                "real_probability": 1.0 - p_fake,
+                "label": "fake" if is_fake else "real",
+            })
+
+        res = analyze_temporal_consistency(preds, enter_threshold=0.65, recovery_threshold=0.50)
+        assert res["status"] == "complete"
+        assert res["is_temporally_suspicious"] is True
+        assert len(res["suspicious_segments"]) == 1
+
+        seg = res["suspicious_segments"][0]
+        # With EWMA lag (tau=1.5s), smoothed probability crosses 0.65 at frame 4 (120) and remains through frame 7 (210)
+        assert seg["start_frame"] in {90, 120}
+        assert seg["end_frame"] == 210   # frame 7 * 30
+        assert seg["start_time_seconds"] in {3.0, 4.0}
+        assert seg["end_time_seconds"] == 7.0
+        assert seg["frame_count"] >= 4
+        assert seg["mean_fake_probability"] >= 0.70
+        assert seg["peak_fake_probability"] >= 0.85
+        assert seg["severity"] in {"medium", "high"}
+
+    def test_isolated_spike_suppression(self):
+        """A 3-point rolling median suppresses an isolated single-frame spike."""
+        # Frame 4 has an isolated spike of 0.95, while all others are 0.10
+        preds = []
+        for i in range(10):
+            p_fake = 0.95 if i == 4 else 0.10
+            preds.append({
+                "frame_number": i * 30,
+                "timestamp_seconds": float(i),
+                "fake_probability": p_fake,
+                "real_probability": 1.0 - p_fake,
+                "label": "fake" if i == 4 else "real",
+            })
+
+        res = analyze_temporal_consistency(preds, enter_threshold=0.65, recovery_threshold=0.50)
+        # Median filter window [0.10, 0.95, 0.10] -> 0.10, spike is suppressed
+        assert res["status"] == "complete"
+        assert len(res["suspicious_segments"]) == 0
+        assert res["is_temporally_suspicious"] is False
+        assert res["smoothed_probabilities"][4] < 0.30
+
+    def test_missing_predictions_large_gap_resets_ewma(self):
+        """A large timestamp gap (> max_gap_seconds) resets the EWMA state without fabricating data."""
+        # Gap from 2.0s to 8.0s (6 seconds gap > default max_gap_seconds=3.0)
+        preds = [
+            {"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 0.90, "real_probability": 0.10},
+            {"frame_number": 30, "timestamp_seconds": 1.0, "fake_probability": 0.90, "real_probability": 0.10},
+            {"frame_number": 60, "timestamp_seconds": 2.0, "fake_probability": 0.90, "real_probability": 0.10},
+            # Gap occurs here: 6.0s missing
+            {"frame_number": 240, "timestamp_seconds": 8.0, "fake_probability": 0.10, "real_probability": 0.90},
+            {"frame_number": 270, "timestamp_seconds": 9.0, "fake_probability": 0.10, "real_probability": 0.90},
+        ]
+        res = analyze_temporal_consistency(preds, max_gap_seconds=3.0)
+        assert res["status"] == "complete"
+        # At 8.0s, the state immediately resets to the new median-filtered value (0.10),
+        # not slowly dragged down by the previous 0.90 state
+        assert res["smoothed_probabilities"][3] == 0.10
+
+    def test_alternating_scores_high_inconsistency(self):
+        """Rapidly fluctuating probabilities yield high temporal inconsistency score and derivative."""
+        preds = []
+        for i in range(12):
+            p_fake = 0.90 if i % 2 == 0 else 0.10
+            preds.append({
+                "frame_number": i * 15,
+                "timestamp_seconds": float(i) * 0.5,
+                "fake_probability": p_fake,
+                "real_probability": 1.0 - p_fake,
+            })
+
+        res = analyze_temporal_consistency(preds)
+        assert res["mean_absolute_derivative"] > 0.05
+        assert res["temporal_variance"] > 0.01
+        assert res["temporal_inconsistency_score"] > 0.30
+
+    def test_unordered_and_duplicate_timestamps(self):
+        """Unordered timestamps are sorted chronologically and duplicates processed stably."""
+        preds = [
+            {"frame_number": 90, "timestamp_seconds": 3.0, "fake_probability": 0.70},
+            {"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 0.10},
+            {"frame_number": 30, "timestamp_seconds": 1.0, "fake_probability": 0.20},
+            {"frame_number": 31, "timestamp_seconds": 1.0, "fake_probability": 0.25},  # duplicate timestamp
+            {"frame_number": 60, "timestamp_seconds": 2.0, "fake_probability": 0.30},
+        ]
+        res = analyze_temporal_consistency(preds)
+        assert res["total_predictions"] == 5
+        assert res["status"] == "complete"
+        # Confirm sorted processing
+        assert res["smoothed_probabilities"][0] == 0.10
+
+    def test_invalid_probabilities_raise_value_error(self):
+        """Negative or out-of-range probabilities raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid fake_probability"):
+            analyze_temporal_consistency([
+                {"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 1.5}
+            ])
+
+        with pytest.raises(ValueError, match="Invalid fake_probability"):
+            analyze_temporal_consistency([
+                {"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": -0.1}
+            ])
+
+        with pytest.raises(ValueError, match="enter_threshold .* must be >= recovery_threshold"):
+            analyze_temporal_consistency(
+                [{"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 0.5}],
+                enter_threshold=0.40,
+                recovery_threshold=0.60,
+            )
+
+    def test_configurable_parameters(self):
+        """Custom enter_threshold, tau, and min_frames are respected."""
+        preds = [
+            {"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 0.60},
+            {"frame_number": 30, "timestamp_seconds": 1.0, "fake_probability": 0.60},
+        ]
+        # With default enter_threshold=0.65, not suspicious
+        res_default = analyze_temporal_consistency(preds)
+        assert len(res_default["suspicious_segments"]) == 0
+
+        # With enter_threshold=0.55 and recovery=0.45, it is suspicious
+        res_custom = analyze_temporal_consistency(
+            preds,
+            enter_threshold=0.55,
+            recovery_threshold=0.45,
+            min_frames=2,
+            min_duration=0.5,
+        )
+        assert len(res_custom["suspicious_segments"]) == 1
 
 
 if __name__ == "__main__":
