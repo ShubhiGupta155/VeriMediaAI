@@ -1061,6 +1061,34 @@ class TestTemporalAnalysis:
                 recovery_threshold=0.60,
             )
 
+    def test_max_gap_seconds_validation(self):
+        """max_gap_seconds must be greater than 0."""
+        preds = [{"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 0.5, "real_probability": 0.5}]
+        with pytest.raises(ValueError, match="max_gap_seconds must be greater than 0"):
+            analyze_temporal_consistency(preds, max_gap_seconds=0)
+
+        with pytest.raises(ValueError, match="max_gap_seconds must be greater than 0"):
+            analyze_temporal_consistency(preds, max_gap_seconds=-1.5)
+
+    def test_probability_complementarity_validation(self):
+        """Probabilities must sum approximately to 1.0 within tolerance."""
+        # Non-complementary probabilities should raise ValueError
+        with pytest.raises(ValueError, match="not complementary"):
+            analyze_temporal_consistency([
+                {"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 0.7, "real_probability": 0.5}
+            ])
+
+        with pytest.raises(ValueError, match="not complementary"):
+            analyze_temporal_consistency([
+                {"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 0.2, "real_probability": 0.2}
+            ])
+
+        # Valid complementary pair close to 1.0 within tolerance succeeds
+        res = analyze_temporal_consistency([
+            {"frame_number": 0, "timestamp_seconds": 0.0, "fake_probability": 0.7000001, "real_probability": 0.2999999}
+        ])
+        assert res["total_predictions"] == 1
+
     def test_configurable_parameters(self):
         """Custom enter_threshold, tau, and min_frames are respected."""
         preds = [

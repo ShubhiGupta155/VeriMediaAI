@@ -46,6 +46,8 @@ def analyze_temporal_consistency(
         raise ValueError(f"min_frames must be >= 1, got {min_frames}")
     if min_duration < 0:
         raise ValueError(f"min_duration must be non-negative, got {min_duration}")
+    if max_gap_seconds <= 0:
+        raise ValueError(f"max_gap_seconds must be greater than 0, got {max_gap_seconds}")
 
     # Handle empty input
     if not predictions:
@@ -79,6 +81,12 @@ def analyze_temporal_consistency(
         real_p = float(pred.get("real_probability", 1.0 - fake_p))
         if not (0.0 <= real_p <= 1.0) or math.isnan(real_p):
             raise ValueError(f"Invalid real_probability {real_p} at index {idx}; must be in [0.0, 1.0]")
+
+        if abs((fake_p + real_p) - 1.0) > 1e-6:
+            raise ValueError(
+                f"Probabilities at index {idx} are not complementary: "
+                f"fake_probability ({fake_p}) + real_probability ({real_p}) = {fake_p + real_p} != 1.0"
+            )
 
         t_sec = float(pred["timestamp_seconds"])
         if t_sec < 0.0 or math.isnan(t_sec):
