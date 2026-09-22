@@ -2,6 +2,12 @@ import os
 import numpy as np
 import librosa
 import librosa.display
+
+import matplotlib
+
+# Use a non-GUI backend for automated testing and server environments
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 
@@ -28,7 +34,7 @@ def generate_spectrogram(
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    # Load audio
+    # Load audio at 16 kHz and convert to mono
     audio, sample_rate = librosa.load(
         file_path,
         sr=16000,
@@ -44,7 +50,7 @@ def generate_spectrogram(
         n_mels=128
     )
 
-    # Convert to decibel scale
+    # Convert power spectrogram to decibel scale
     mel_db = librosa.power_to_db(
         mel,
         ref=np.max
@@ -56,7 +62,7 @@ def generate_spectrogram(
     if output_folder:
         os.makedirs(output_folder, exist_ok=True)
 
-    # Plot spectrogram
+    # Create spectrogram figure
     plt.figure(figsize=(10, 4))
 
     librosa.display.specshow(
@@ -71,7 +77,7 @@ def generate_spectrogram(
     plt.title("Mel-Spectrogram")
     plt.tight_layout()
 
-    # Save image
+    # Save spectrogram image
     plt.savefig(output_path)
     plt.close()
 
