@@ -9,6 +9,7 @@ class MediaType(str, Enum):
     IMAGE = "image"
     VIDEO = "video"
     AUDIO = "audio"
+    LIPSYNC = "lipsync"
     MULTIMODAL = "multimodal"
 
 
@@ -37,7 +38,9 @@ class ModuleResult(BaseModel):
     def validate_result(self):
         for name, score in self.scores.items():
             if not 0.0 <= score <= 1.0:
-                raise ValueError(f"Score '{name}' must be between 0.0 and 1.0")
+                raise ValueError(
+                    f"Score '{name}' must be between 0.0 and 1.0"
+                )
 
         if self.status == ModuleStatus.SUCCESS and not self.model_versions:
             raise ValueError("Successful results must include model_versions")

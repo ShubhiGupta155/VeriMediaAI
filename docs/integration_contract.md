@@ -4,25 +4,23 @@
 
 Every forensic module must return a standardized `ModuleResult`.
 
-## Required fields
+This contract is used by:
 
-- `analysis_id`: Unique analysis identifier.
-- `media_type`: `image`, `video`, `audio`, or `multimodal`.
-- `module`: Module name.
-- `status`: `success`, `partial`, `failed`, or `unavailable`.
-- `scores`: Numeric scores between `0.0` and `1.0`.
-- `evidence`: Structured forensic evidence.
-- `artifacts`: Generated files or visualizations.
-- `timestamps`: Suspicious time intervals where applicable.
-- `warnings`: Non-fatal limitations.
-- `errors`: Failure details.
-- `model_versions`: Detector and model versions.
+- Image forensics
+- Video forensics
+- Audio forensics
+- Lip-sync analysis
+- Multimodal fusion
 
-## Score direction
+The backend uses this structure to validate, combine, store, and explain forensic results.
 
-Higher suspiciousness scores indicate stronger manipulation or synthetic-generation indicators.
+## Supported media types
 
-The baseline common score is:
+The `media_type` field must use one of these values:
 
 ```text
-suspicion_score
+image
+video
+audio
+lipsync
+multimodal

@@ -89,3 +89,39 @@ def test_failed_result_with_error_is_valid():
 
     assert result.status == ModuleStatus.FAILED
     assert result.errors[0] == "Video model could not load."
+
+
+def test_valid_lipsync_module_result():
+    result = ModuleResult(
+        analysis_id="VM-LIPSYNC-0001",
+        media_type=MediaType.LIPSYNC,
+        module="lipsync",
+        status=ModuleStatus.SUCCESS,
+        scores={
+            "sync_score": 0.35,
+            "mismatch_probability": 0.72,
+            "suspicion_score": 0.72,
+        },
+        evidence=[
+            EvidenceItem(
+                type="lip_sync_mismatch",
+                description="Mouth movement is misaligned with the speech segment.",
+                severity=0.72,
+                confidence=0.84,
+                source_module="lipsync",
+                timestamp_seconds=12.5,
+            )
+        ],
+        timestamps=[
+            {
+                "start_seconds": 12.0,
+                "end_seconds": 14.0,
+                "confidence": 0.84,
+            }
+        ],
+        model_versions={"sync_model": "baseline-0.1"},
+    )
+
+    assert result.media_type == MediaType.LIPSYNC
+    assert result.module == "lipsync"
+    assert result.scores["mismatch_probability"] == 0.72
