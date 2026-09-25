@@ -50,39 +50,23 @@ def test_no_face_returns_empty_list(tmp_path):
         assert all(isinstance(value, int) for value in point)
     
     assert landmarks == []
-def test_successful_face_detection(tmp_path):
-    image_path = tmp_path / "test_face.jpg"
+def test_successful_face_detection():
+    image_path = "tests/fixtures/test_face.jpg"
 
-    # Create a test image with a simple face-like pattern.
-    image = np.zeros((480, 640, 3), dtype=np.uint8)
-
-    cv2.ellipse(
-        image,
-        (320, 240),
-        (120, 160),
-        0,
-        0,
-        360,
-        (255, 255, 255),
-        3
-    )
-
-    cv2.circle(image, (275, 210), 15, (255, 255, 255), -1)
-    cv2.circle(image, (365, 210), 15, (255, 255, 255), -1)
-
-    cv2.ellipse(
-        image,
-        (320, 300),
-        (60, 30),
-        0,
-        0,
-        360,
-        (255, 255, 255),
-        3
-    )
-
-    cv2.imwrite(str(image_path), image)
-
-    landmarks = extract_lip_landmarks(str(image_path))
+    landmarks = extract_lip_landmarks(image_path)
 
     assert isinstance(landmarks, list)
+    assert len(landmarks) == 4
+
+    image = cv2.imread(image_path)
+
+    height, width = image.shape[:2]
+
+    for point in landmarks:
+        assert isinstance(point, tuple)
+        assert len(point) == 2
+
+        x, y = point
+
+        assert 0 <= x < width
+        assert 0 <= y < height
