@@ -56,13 +56,13 @@ def extract_lip_landmarks(image_path):
     mouth_h = int(face_h * 0.25)
 
     # Return four corner points of the mouth region.
+    
     lip_landmarks = [
-        (mouth_x, mouth_y),
-        (mouth_x + mouth_w, mouth_y),
-        (mouth_x, mouth_y + mouth_h),
-        (mouth_x + mouth_w, mouth_y + mouth_h)
-    ]
-
+    (int(mouth_x), int(mouth_y)),
+    (int(mouth_x + mouth_w), int(mouth_y)),
+    (int(mouth_x), int(mouth_y + mouth_h)),
+    (int(mouth_x + mouth_w), int(mouth_y + mouth_h))
+]
     return lip_landmarks
 
 

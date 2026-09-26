@@ -67,6 +67,9 @@ def test_successful_face_detection():
         assert len(point) == 2
 
         x, y = point
+        
+        assert isinstance(x, int)
+        assert isinstance(y, int)
 
         assert 0 <= x < width
         assert 0 <= y < height
