@@ -153,3 +153,13 @@ def test_invalid_custom_weight_is_rejected():
             [make_result("image", 0.5)],
             weights={"image": -0.1},
         )
+
+
+@pytest.mark.parametrize("invalid_score", [-0.01, 1.01])
+def test_invalid_suspicion_score_is_rejected(invalid_score):
+    result = make_result("image", 0.5).model_copy(
+        update={"scores": {"suspicion_score": invalid_score}}
+    )
+
+    with pytest.raises(ValueError, match="Invalid suspicion_score"):
+        weighted_fusion([result], weights={"image": 0.40})        

@@ -1,4 +1,5 @@
 from typing import Any
+import math
 
 from backend.schemas.analysis import ModuleResult
 
@@ -66,6 +67,16 @@ def weighted_fusion(
             "excluded_modules": excluded,
             "warnings": ["No modules had a usable score and positive weight."],
         }
+
+    if (
+        not isinstance(score, (int, float))
+        or not math.isfinite(score)
+        or not 0.0 <= score <= 1.0
+):
+        raise ValueError(
+            f"Invalid suspicion_score for module '{module_name}': "
+            "expected a finite value between 0.0 and 1.0."
+    )
 
     total_weight = sum(weight for _, _, weight in weighted_scores)
     score_sum = sum(score * weight for _, score, weight in weighted_scores)
