@@ -44,3 +44,9 @@ Thumbs.db
 
 # Logs
 *.log
+# Evaluation dataset
+!evaluation/dataset/
+!evaluation/dataset/real/
+!evaluation/dataset/ai_generated/
+!evaluation/dataset/real/*
+!evaluation/dataset/ai_generated/*
