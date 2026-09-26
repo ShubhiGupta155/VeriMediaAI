@@ -57,23 +57,26 @@ def evaluate_folder(folder, expected_label):
 
     Returns:
         tuple:
-            total number of images
+            total number of successfully evaluated images
             number of correct predictions
+            number of evaluation errors
     """
 
     image_files = get_image_files(folder)
 
     total = 0
     correct = 0
+    errors = 0
 
     print(f"\nEvaluating: {expected_label}")
     print("-" * 50)
 
     for image_path in image_files:
-        total += 1
-
         try:
             result = detect_ai_generated(image_path)
+
+            # Count an image only after successful inference.
+            total += 1
 
             predicted = result["predicted_label"]
 
@@ -90,21 +93,23 @@ def evaluate_folder(folder, expected_label):
             )
 
         except Exception as e:
+            errors += 1
+
             print(
                 f"{image_path.name} -> ERROR: {e}"
             )
 
-    return total, correct
+    return total, correct, errors
 
 
 def main():
     try:
-        real_total, real_correct = evaluate_folder(
+        real_total, real_correct, real_errors = evaluate_folder(
             REAL_DIR,
             "real"
         )
 
-        ai_total, ai_correct = evaluate_folder(
+        ai_total, ai_correct, ai_errors = evaluate_folder(
             AI_DIR,
             "ai_generated"
         )
@@ -119,6 +124,7 @@ def main():
 
     total = real_total + ai_total
     correct = real_correct + ai_correct
+    errors = real_errors + ai_errors
 
     print("\n" + "=" * 50)
     print("IMAGE DETECTOR EVALUATION")
@@ -139,6 +145,11 @@ def main():
         f"{correct}/{total}"
     )
 
+    print(
+        f"Evaluation errors:  "
+        f"{errors}"
+    )
+
     if total > 0:
         accuracy = correct / total
 
@@ -146,6 +157,8 @@ def main():
             f"Accuracy:           "
             f"{accuracy:.2%}"
         )
+    else:
+        print("Accuracy:           N/A")
 
 
 if __name__ == "__main__":
