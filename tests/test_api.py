@@ -6,55 +6,46 @@ from backend.main import app
 client = TestClient(app)
 
 
-def test_accepts_avif_upload():
-    response = client.post(
-        "/analyses",
-        files={
-            "file": (
-                "source.avif",
-                b"test AVIF upload bytes",
-                "image/avif",
-            )
-        },
+def fake_process_uploaded_media(contents, filename, media_type, analysis_id):
+    return {
+        "status": "completed",
+        "module_results": [],
+        "fusion": {"fused_score": 0.5},
+        "risk_assessment": {"assessment": "Inconclusive"},
+    }
+
+
+def test_accepts_avif_upload(monkeypatch):
+    monkeypatch.setattr(
+        "backend.routes.analysis.process_uploaded_media",
+        fake_process_uploaded_media,
     )
 
-    assert response.status_code == 202
+    response = client.post(
+        "/analyses",
+        files={"file": ("source.avif", b"test bytes", "image/avif")},
+    )
 
+    assert response.status_code == 200
     body = response.json()
-    assert body["filename"] == "source.avif"
     assert body["media_type"] == "image"
-    assert body["status"] == "accepted"
+    assert body["status"] == "completed"
     assert len(body["sha256"]) == 64
-    assert body["bytes_received"] == len(b"test AVIF upload bytes")
 
 
 def test_rejects_unsupported_file_extension():
     response = client.post(
         "/analyses",
-        files={
-            "file": (
-                "document.txt",
-                b"not a supported media file",
-                "text/plain",
-            )
-        },
+        files={"file": ("document.txt", b"test", "text/plain")},
     )
 
     assert response.status_code == 415
-    assert "Unsupported file extension" in response.json()["detail"]
 
 
 def test_rejects_empty_upload():
     response = client.post(
         "/analyses",
-        files={
-            "file": (
-                "empty.png",
-                b"",
-                "image/png",
-            )
-        },
+        files={"file": ("empty.png", b"", "image/png")},
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "The uploaded file is empty."

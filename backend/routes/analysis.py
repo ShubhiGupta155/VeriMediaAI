@@ -3,6 +3,9 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
+
+from backend.services.orchestration_service import process_uploaded_media
 
 router = APIRouter(tags=["analysis"])
 
@@ -13,6 +16,7 @@ SUPPORTED_EXTENSIONS = {
     ".jpeg": "image",
     ".png": "image",
     ".webp": "image",
+    ".avif": "image",
     ".mp4": "video",
     ".mov": "video",
     ".avi": "video",
@@ -22,11 +26,10 @@ SUPPORTED_EXTENSIONS = {
     ".m4a": "audio",
     ".flac": "audio",
     ".ogg": "audio",
-    ".avif": "image",
 }
 
 
-@router.post("/analyses", status_code=202)
+@router.post("/analyses")
 async def create_analysis(file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="A filename is required.")
@@ -53,12 +56,22 @@ async def create_analysis(file: UploadFile = File(...)):
             detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.",
         )
 
+    analysis_id = f"VM-{uuid.uuid4().hex[:8].upper()}"
+    file_hash = hashlib.sha256(contents).hexdigest()
+
+    result = await run_in_threadpool(
+        process_uploaded_media,
+        contents,
+        filename,
+        media_type,
+        analysis_id,
+    )
+
     return {
-        "analysis_id": f"VM-{uuid.uuid4().hex[:8].upper()}",
+        "analysis_id": analysis_id,
         "filename": filename,
         "media_type": media_type,
-        "sha256": hashlib.sha256(contents).hexdigest(),
+        "sha256": file_hash,
         "bytes_received": len(contents),
-        "status": "accepted",
-        "message": "Upload validated. Detector orchestration is not connected yet.",
+        **result,
     }
