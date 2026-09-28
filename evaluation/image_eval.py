@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import json
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +13,9 @@ REAL_DIR = PROJECT_ROOT / "evaluation" / "dataset" / "real"
 AI_DIR = PROJECT_ROOT / "evaluation" / "dataset" / "ai_generated"
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+RESULTS_DIR = PROJECT_ROOT / "evaluation" / "results"
+RESULTS_FILE = RESULTS_DIR / "image_evaluation.json"
 
 
 def get_image_files(folder):
@@ -194,7 +198,104 @@ def calculate_metrics(results):
         "f1_score": f1_score,
     }
 
+def save_evaluation_results(
+    results,
+    metrics,
+    total,
+    correct,
+    errors,
+):
+    """
+    Save image detector evaluation results as JSON.
+    """
 
+    real_results = [
+        result
+        for result in results
+        if result["expected"] == "real"
+    ]
+
+    ai_results = [
+        result
+        for result in results
+        if result["expected"] == "ai_generated"
+    ]
+
+    real_correct = sum(
+        result["correct"]
+        for result in real_results
+    )
+
+    ai_correct = sum(
+        result["correct"]
+        for result in ai_results
+    )
+
+    evaluation_data = {
+        "summary": {
+            "total_images": total,
+            "correct_predictions": correct,
+            "evaluation_errors": errors,
+            "accuracy": (
+                correct / total
+                if total > 0
+                else None
+            ),
+        },
+        "confusion_matrix": {
+            "true_positive": metrics["true_positive"],
+            "true_negative": metrics["true_negative"],
+            "false_positive": metrics["false_positive"],
+            "false_negative": metrics["false_negative"],
+        },
+        "classification_metrics": {
+            "precision": metrics["precision"],
+            "recall": metrics["recall"],
+            "f1_score": metrics["f1_score"],
+        },
+        "per_class_accuracy": {
+            "real": {
+                "correct": real_correct,
+                "total": len(real_results),
+                "accuracy": (
+                    real_correct / len(real_results)
+                    if real_results
+                    else None
+                ),
+            },
+            "ai_generated": {
+                "correct": ai_correct,
+                "total": len(ai_results),
+                "accuracy": (
+                    ai_correct / len(ai_results)
+                    if ai_results
+                    else None
+                ),
+            },
+        },
+        "results": results,
+    }
+
+    RESULTS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with open(
+        RESULTS_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            evaluation_data,
+            file,
+            indent=4,
+        )
+
+    print(
+        f"\nEvaluation results saved to: "
+        f"{RESULTS_FILE}"
+    )
 def print_error_analysis(results):
     """
     Print detailed analysis of false-positive and false-negative cases.
@@ -254,7 +355,52 @@ def print_error_analysis(results):
     else:
         print("No false negatives.")
 
+def save_evaluation_results(
+    output_path,
+    all_results,
+    metrics,
+    total,
+    correct,
+    errors,
+):
+    """
+    Save image detector evaluation results to a JSON file.
+    """
 
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    accuracy = correct / total if total > 0 else 0.0
+
+    evaluation = {
+        "summary": {
+            "total_images": total,
+            "correct_predictions": correct,
+            "evaluation_errors": errors,
+            "accuracy": accuracy,
+        },
+        "confusion_matrix": {
+            "true_positive": metrics["true_positive"],
+            "true_negative": metrics["true_negative"],
+            "false_positive": metrics["false_positive"],
+            "false_negative": metrics["false_negative"],
+        },
+        "classification_metrics": {
+            "precision": metrics["precision"],
+            "recall": metrics["recall"],
+            "f1_score": metrics["f1_score"],
+        },
+        "results": all_results,
+    }
+
+    with open(output_path, "w", encoding="utf-8") as file:
+        json.dump(
+            evaluation,
+            file,
+            indent=4,
+        )
+
+    print(f"\nEvaluation results saved to: {output_path}")
 def main():
     try:
         (
@@ -376,6 +522,21 @@ def main():
 
     print_error_analysis(all_results)
     print_class_accuracy(all_results)
+    output_path = (
+        PROJECT_ROOT
+        / "evaluation"
+        / "results"
+        / "image_evaluation.json"
+    )
+
+    save_evaluation_results(
+        output_path,
+        all_results,
+        metrics,
+        total,
+        correct,
+        errors,
+    )
 
 def print_class_accuracy(results):
     """
