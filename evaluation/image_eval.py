@@ -399,8 +399,119 @@ def save_evaluation_results(
             file,
             indent=4,
         )
-
     print(f"\nEvaluation results saved to: {output_path}")
+
+
+def calculate_threshold_metrics(results, threshold):
+    """
+    Calculate classification metrics using an AI-generated
+    probability threshold.
+    """
+
+    true_positive = 0
+    true_negative = 0
+    false_positive = 0
+    false_negative = 0
+
+    for result in results:
+        ai_probability = result["ai_generated_probability"]
+
+        predicted_ai = ai_probability >= threshold
+        expected_ai = result["expected"] == "ai_generated"
+
+        if expected_ai and predicted_ai:
+            true_positive += 1
+        elif not expected_ai and not predicted_ai:
+            true_negative += 1
+        elif not expected_ai and predicted_ai:
+            false_positive += 1
+        elif expected_ai and not predicted_ai:
+            false_negative += 1
+
+    total = len(results)
+
+    accuracy = (
+        (true_positive + true_negative) / total
+        if total > 0
+        else 0.0
+    )
+
+    precision = (
+        true_positive / (true_positive + false_positive)
+        if true_positive + false_positive > 0
+        else 0.0
+    )
+
+    recall = (
+        true_positive / (true_positive + false_negative)
+        if true_positive + false_negative > 0
+        else 0.0
+    )
+
+    f1_score = (
+        2 * precision * recall / (precision + recall)
+        if precision + recall > 0
+        else 0.0
+    )
+
+    return {
+        "threshold": threshold,
+        "true_positive": true_positive,
+        "true_negative": true_negative,
+        "false_positive": false_positive,
+        "false_negative": false_negative,
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1_score": f1_score,
+    }
+
+
+def print_threshold_analysis(results):
+    """
+    Print evaluation metrics for multiple AI-generated
+    probability thresholds.
+    """
+
+    thresholds = [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9,
+    ]
+
+    print("\n" + "-" * 75)
+    print("CONFIDENCE THRESHOLD ANALYSIS")
+    print("-" * 75)
+
+    print(
+        "Threshold | TP | TN | FP | FN | "
+        "Accuracy | Precision | Recall | F1"
+    )
+    print("-" * 75)
+
+    for threshold in thresholds:
+        metrics = calculate_threshold_metrics(
+            results,
+            threshold,
+        )
+
+        print(
+            f"{threshold:.1f}       | "
+            f"{metrics['true_positive']:2} | "
+            f"{metrics['true_negative']:2} | "
+            f"{metrics['false_positive']:2} | "
+            f"{metrics['false_negative']:2} | "
+            f"{metrics['accuracy']:.2%}   | "
+            f"{metrics['precision']:.2%}    | "
+            f"{metrics['recall']:.2%} | "
+            f"{metrics['f1_score']:.2%}"
+        )
 def main():
     try:
         (
@@ -522,6 +633,7 @@ def main():
 
     print_error_analysis(all_results)
     print_class_accuracy(all_results)
+    print_threshold_analysis(all_results)
     output_path = (
         PROJECT_ROOT
         / "evaluation"
