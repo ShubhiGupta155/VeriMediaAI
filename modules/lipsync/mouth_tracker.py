@@ -1,6 +1,8 @@
 import cv2
 
-from modules.lipsync.landmarks import extract_lip_landmarks
+from modules.lipsync.landmarks import (
+    _extract_lip_landmarks_from_image,
+)
 
 
 def calculate_mouth_movement(previous_landmarks, current_landmarks):
@@ -63,44 +65,9 @@ def track_mouth_movement(video_path):
 
         frame_count += 1
 
-        # Save current frame temporarily in memory.
-        gray = cv2.cvtColor(
-            frame,
-            cv2.COLOR_BGR2GRAY
+        current_landmarks = _extract_lip_landmarks_from_image(
+            frame
         )
-
-        # Use the existing landmark logic on the frame.
-        face_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades +
-            "haarcascade_frontalface_default.xml"
-        )
-
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(80, 80)
-        )
-
-        current_landmarks = []
-
-        if len(faces) > 0:
-            face_x, face_y, face_w, face_h = max(
-                faces,
-                key=lambda face: face[2] * face[3]
-            )
-
-            mouth_x = face_x + int(face_w * 0.20)
-            mouth_y = face_y + int(face_h * 0.58)
-            mouth_w = int(face_w * 0.60)
-            mouth_h = int(face_h * 0.25)
-
-            current_landmarks = [
-                (int(mouth_x), int(mouth_y)),
-                (int(mouth_x + mouth_w), int(mouth_y)),
-                (int(mouth_x), int(mouth_y + mouth_h)),
-                (int(mouth_x + mouth_w), int(mouth_y + mouth_h))
-            ]
 
         if previous_landmarks and current_landmarks:
             movement = calculate_mouth_movement(

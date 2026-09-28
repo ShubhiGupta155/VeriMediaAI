@@ -61,3 +61,27 @@ def test_invalid_video_raises_error(tmp_path):
         assert False, "Expected ValueError"
     except ValueError:
         assert True
+
+
+def test_successful_video_tracking():
+    from modules.lipsync.mouth_tracker import track_mouth_movement
+
+    video_path = "tests/fixtures/test_mouth_tracker.mp4"
+
+    result = track_mouth_movement(video_path)
+
+    assert isinstance(result, dict)
+
+    assert "status" in result
+    assert "frame_count" in result
+    assert "movement_frames" in result
+    assert "average_mouth_movement" in result
+
+    assert result["status"] == "success"
+    assert isinstance(result["frame_count"], int)
+    assert isinstance(result["movement_frames"], int)
+    assert isinstance(result["average_mouth_movement"], float)
+
+    assert result["frame_count"] > 0
+    assert result["movement_frames"] >= 0
+    assert result["average_mouth_movement"] >= 0.0
