@@ -124,23 +124,7 @@ def evaluate_folder(folder, expected_label):
 
 def calculate_metrics(results):
     """
-    Calculate confusion-matrix values and classification metrics.
-
-    Positive class:
-        ai_generated
-
-    Negative class:
-        real
-
-    Returns:
-        dict containing:
-            true_positive
-            true_negative
-            false_positive
-            false_negative
-            precision
-            recall
-            f1_score
+    Calculate confusion matrix and classification metrics.
     """
 
     true_positive = 0
@@ -164,29 +148,23 @@ def calculate_metrics(results):
         elif expected == "ai_generated" and predicted == "real":
             false_negative += 1
 
-    precision_denominator = true_positive + false_positive
+    precision = (
+        true_positive / (true_positive + false_positive)
+        if true_positive + false_positive > 0
+        else 0.0
+    )
 
-    if precision_denominator > 0:
-        precision = true_positive / precision_denominator
-    else:
-        precision = 0.0
+    recall = (
+        true_positive / (true_positive + false_negative)
+        if true_positive + false_negative > 0
+        else 0.0
+    )
 
-    recall_denominator = true_positive + false_negative
-
-    if recall_denominator > 0:
-        recall = true_positive / recall_denominator
-    else:
-        recall = 0.0
-
-    f1_denominator = precision + recall
-
-    if f1_denominator > 0:
-        f1_score = (
-            2 * precision * recall
-            / f1_denominator
-        )
-    else:
-        f1_score = 0.0
+    f1_score = (
+        2 * precision * recall / (precision + recall)
+        if precision + recall > 0
+        else 0.0
+    )
 
     return {
         "true_positive": true_positive,
@@ -198,125 +176,24 @@ def calculate_metrics(results):
         "f1_score": f1_score,
     }
 
-def save_evaluation_results(
-    results,
-    metrics,
-    total,
-    correct,
-    errors,
-):
-    """
-    Save image detector evaluation results as JSON.
-    """
 
-    real_results = [
-        result
-        for result in results
-        if result["expected"] == "real"
-    ]
-
-    ai_results = [
-        result
-        for result in results
-        if result["expected"] == "ai_generated"
-    ]
-
-    real_correct = sum(
-        result["correct"]
-        for result in real_results
-    )
-
-    ai_correct = sum(
-        result["correct"]
-        for result in ai_results
-    )
-
-    evaluation_data = {
-        "summary": {
-            "total_images": total,
-            "correct_predictions": correct,
-            "evaluation_errors": errors,
-            "accuracy": (
-                correct / total
-                if total > 0
-                else None
-            ),
-        },
-        "confusion_matrix": {
-            "true_positive": metrics["true_positive"],
-            "true_negative": metrics["true_negative"],
-            "false_positive": metrics["false_positive"],
-            "false_negative": metrics["false_negative"],
-        },
-        "classification_metrics": {
-            "precision": metrics["precision"],
-            "recall": metrics["recall"],
-            "f1_score": metrics["f1_score"],
-        },
-        "per_class_accuracy": {
-            "real": {
-                "correct": real_correct,
-                "total": len(real_results),
-                "accuracy": (
-                    real_correct / len(real_results)
-                    if real_results
-                    else None
-                ),
-            },
-            "ai_generated": {
-                "correct": ai_correct,
-                "total": len(ai_results),
-                "accuracy": (
-                    ai_correct / len(ai_results)
-                    if ai_results
-                    else None
-                ),
-            },
-        },
-        "results": results,
-    }
-
-    RESULTS_DIR.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    with open(
-        RESULTS_FILE,
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            evaluation_data,
-            file,
-            indent=4,
-        )
-
-    print(
-        f"\nEvaluation results saved to: "
-        f"{RESULTS_FILE}"
-    )
 def print_error_analysis(results):
     """
-    Print detailed analysis of false-positive and false-negative cases.
+    Print false-positive and false-negative analysis.
     """
 
     false_positives = [
         result
         for result in results
-        if (
-            result["expected"] == "real"
-            and result["predicted"] == "ai_generated"
-        )
+        if result["expected"] == "real"
+        and result["predicted"] == "ai_generated"
     ]
 
     false_negatives = [
         result
         for result in results
-        if (
-            result["expected"] == "ai_generated"
-            and result["predicted"] == "real"
-        )
+        if result["expected"] == "ai_generated"
+        and result["predicted"] == "real"
     ]
 
     print("\n" + "-" * 50)
@@ -327,8 +204,8 @@ def print_error_analysis(results):
         for result in false_positives:
             print(
                 f"{result['filename']} -> "
-                f"expected=real | "
-                f"predicted=ai_generated | "
+                f"expected={result['expected']} | "
+                f"predicted={result['predicted']} | "
                 f"real_probability="
                 f"{result['real_probability']:.4f} | "
                 f"ai_generated_probability="
@@ -345,8 +222,8 @@ def print_error_analysis(results):
         for result in false_negatives:
             print(
                 f"{result['filename']} -> "
-                f"expected=ai_generated | "
-                f"predicted=real | "
+                f"expected={result['expected']} | "
+                f"predicted={result['predicted']} | "
                 f"real_probability="
                 f"{result['real_probability']:.4f} | "
                 f"ai_generated_probability="
@@ -354,6 +231,7 @@ def print_error_analysis(results):
             )
     else:
         print("No false negatives.")
+
 
 def save_evaluation_results(
     output_path,
@@ -399,7 +277,10 @@ def save_evaluation_results(
             file,
             indent=4,
         )
-    print(f"\nEvaluation results saved to: {output_path}")
+
+    print(
+        f"\nEvaluation results saved to: {output_path}"
+    )
 
 
 def calculate_threshold_metrics(results, threshold):
@@ -421,10 +302,13 @@ def calculate_threshold_metrics(results, threshold):
 
         if expected_ai and predicted_ai:
             true_positive += 1
+
         elif not expected_ai and not predicted_ai:
             true_negative += 1
+
         elif not expected_ai and predicted_ai:
             false_positive += 1
+
         elif expected_ai and not predicted_ai:
             false_negative += 1
 
@@ -493,6 +377,7 @@ def print_threshold_analysis(results):
         "Threshold | TP | TN | FP | FN | "
         "Accuracy | Precision | Recall | F1"
     )
+
     print("-" * 75)
 
     for threshold in thresholds:
@@ -512,6 +397,180 @@ def print_threshold_analysis(results):
             f"{metrics['recall']:.2%} | "
             f"{metrics['f1_score']:.2%}"
         )
+
+
+def calculate_calibration_bins(results, bin_count=10):
+    """
+    Calculate confidence calibration statistics.
+
+    Predictions are grouped into confidence bins.
+    Each bin reports the average confidence and
+    observed accuracy.
+    """
+
+    bins = []
+
+    for index in range(bin_count):
+        lower = index / bin_count
+        upper = (index + 1) / bin_count
+
+        bin_results = []
+
+        for result in results:
+            confidence = result["confidence"]
+
+            if index == bin_count - 1:
+                in_bin = (
+                    lower <= confidence <= upper
+                )
+            else:
+                in_bin = (
+                    lower <= confidence < upper
+                )
+
+            if in_bin:
+                bin_results.append(result)
+
+        count = len(bin_results)
+
+        if count == 0:
+            bins.append(
+                {
+                    "lower": lower,
+                    "upper": upper,
+                    "count": 0,
+                    "average_confidence": 0.0,
+                    "accuracy": 0.0,
+                    "calibration_gap": 0.0,
+                }
+            )
+
+            continue
+
+        average_confidence = (
+            sum(
+                result["confidence"]
+                for result in bin_results
+            )
+            / count
+        )
+
+        accuracy = (
+            sum(
+                result["correct"]
+                for result in bin_results
+            )
+            / count
+        )
+
+        calibration_gap = abs(
+            average_confidence - accuracy
+        )
+
+        bins.append(
+            {
+                "lower": lower,
+                "upper": upper,
+                "count": count,
+                "average_confidence": average_confidence,
+                "accuracy": accuracy,
+                "calibration_gap": calibration_gap,
+            }
+        )
+
+    return bins
+
+
+def print_calibration_analysis(results):
+    """
+    Print confidence calibration statistics.
+    """
+
+    bins = calculate_calibration_bins(results)
+
+    print("\n" + "-" * 75)
+    print("CONFIDENCE CALIBRATION ANALYSIS")
+    print("-" * 75)
+
+    print(
+        "Confidence | Count | Avg Confidence | "
+        "Accuracy | Calibration Gap"
+    )
+
+    print("-" * 75)
+
+    for calibration_bin in bins:
+        if calibration_bin["count"] == 0:
+            continue
+
+        print(
+            f"{calibration_bin['lower']:.1f}-"
+            f"{calibration_bin['upper']:.1f}      | "
+            f"{calibration_bin['count']:5} | "
+            f"{calibration_bin['average_confidence']:.2%}         | "
+            f"{calibration_bin['accuracy']:.2%}   | "
+            f"{calibration_bin['calibration_gap']:.2%}"
+        )
+
+
+def print_class_accuracy(results):
+    """
+    Print accuracy separately for real and AI-generated images.
+    """
+
+    real_results = [
+        result
+        for result in results
+        if result["expected"] == "real"
+    ]
+
+    ai_results = [
+        result
+        for result in results
+        if result["expected"] == "ai_generated"
+    ]
+
+    real_correct = sum(
+        result["correct"]
+        for result in real_results
+    )
+
+    ai_correct = sum(
+        result["correct"]
+        for result in ai_results
+    )
+
+    print("\n" + "-" * 50)
+    print("PER-CLASS ACCURACY")
+    print("-" * 50)
+
+    if real_results:
+        real_accuracy = (
+            real_correct / len(real_results)
+        )
+
+        print(
+            f"Real accuracy:        "
+            f"{real_correct}/{len(real_results)} "
+            f"({real_accuracy:.2%})"
+        )
+    else:
+        print("Real accuracy:        N/A")
+
+    if ai_results:
+        ai_accuracy = (
+            ai_correct / len(ai_results)
+        )
+
+        print(
+            f"AI-generated accuracy: "
+            f"{ai_correct}/{len(ai_results)} "
+            f"({ai_accuracy:.2%})"
+        )
+    else:
+        print("AI-generated accuracy: N/A")
+
+
 def main():
     try:
         (
@@ -521,7 +580,7 @@ def main():
             real_results,
         ) = evaluate_folder(
             REAL_DIR,
-            "real"
+            "real",
         )
 
         (
@@ -531,7 +590,7 @@ def main():
             ai_results,
         ) = evaluate_folder(
             AI_DIR,
-            "ai_generated"
+            "ai_generated",
         )
 
     except (
@@ -540,10 +599,12 @@ def main():
         ValueError,
     ) as e:
         print(f"\nDataset error: {e}")
+
         print(
             "\nPlease make sure the evaluation dataset is "
             "properly configured."
         )
+
         return
 
     total = real_total + ai_total
@@ -632,17 +693,15 @@ def main():
     )
 
     print_error_analysis(all_results)
+
     print_class_accuracy(all_results)
+
     print_threshold_analysis(all_results)
-    output_path = (
-        PROJECT_ROOT
-        / "evaluation"
-        / "results"
-        / "image_evaluation.json"
-    )
+
+    print_calibration_analysis(all_results)
 
     save_evaluation_results(
-        output_path,
+        RESULTS_FILE,
         all_results,
         metrics,
         total,
@@ -650,58 +709,6 @@ def main():
         errors,
     )
 
-def print_class_accuracy(results):
-    """
-    Print accuracy separately for real and AI-generated images.
-    """
-
-    real_results = [
-        result
-        for result in results
-        if result["expected"] == "real"
-    ]
-
-    ai_results = [
-        result
-        for result in results
-        if result["expected"] == "ai_generated"
-    ]
-
-    real_correct = sum(
-        result["correct"]
-        for result in real_results
-    )
-
-    ai_correct = sum(
-        result["correct"]
-        for result in ai_results
-    )
-
-    print("\n" + "-" * 50)
-    print("PER-CLASS ACCURACY")
-    print("-" * 50)
-
-    if real_results:
-        real_accuracy = real_correct / len(real_results)
-
-        print(
-            f"Real accuracy:        "
-            f"{real_correct}/{len(real_results)} "
-            f"({real_accuracy:.2%})"
-        )
-    else:
-        print("Real accuracy:        N/A")
-
-    if ai_results:
-        ai_accuracy = ai_correct / len(ai_results)
-
-        print(
-            f"AI-generated accuracy: "
-            f"{ai_correct}/{len(ai_results)} "
-            f"({ai_accuracy:.2%})"
-        )
-    else:
-        print("AI-generated accuracy: N/A")
 
 if __name__ == "__main__":
     main()
