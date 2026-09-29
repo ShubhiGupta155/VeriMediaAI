@@ -240,9 +240,12 @@ def save_evaluation_results(
     total,
     correct,
     errors,
+    threshold_analysis,
+    calibration_analysis,
 ):
     """
-    Save image detector evaluation results to a JSON file.
+    Save complete image detector evaluation results
+    to a JSON file.
     """
 
     output_path = Path(output_path)
@@ -268,6 +271,8 @@ def save_evaluation_results(
             "recall": metrics["recall"],
             "f1_score": metrics["f1_score"],
         },
+        "threshold_analysis": threshold_analysis,
+        "calibration_analysis": calibration_analysis,
         "results": all_results,
     }
 
@@ -693,22 +698,32 @@ def main():
     )
 
     print_error_analysis(all_results)
-
     print_class_accuracy(all_results)
 
     print_threshold_analysis(all_results)
 
-    print_calibration_analysis(all_results)
-
-    save_evaluation_results(
-        RESULTS_FILE,
-        all_results,
-        metrics,
-        total,
-        correct,
-        errors,
+    calibration_analysis = calculate_calibration_bins(
+        all_results
     )
 
+    print_calibration_analysis(all_results)
 
-if __name__ == "__main__":
+    output_path = (
+        PROJECT_ROOT
+        / "evaluation"
+        / "results"
+        / "image_evaluation.json"
+    )
+
+def save_evaluation_results(
+    output_path,
+    all_results,
+    metrics,
+    total,
+    correct,
+    errors,
+    threshold_analysis,
+    calibration_analysis,
+):
+ if __name__ == "__main__":
     main()
