@@ -15,37 +15,59 @@ def fake_process_uploaded_media(contents, filename, media_type, analysis_id):
     }
 
 
-def test_accepts_avif_upload(monkeypatch):
-    monkeypatch.setattr(
+def test_accepts_avif_extension_without_testing_decoding(monkeypatch):
+   monkeypatch.setattr(
         "backend.routes.analysis.process_uploaded_media",
         fake_process_uploaded_media,
     )
 
-    response = client.post(
+response = client.post(
         "/analyses",
-        files={"file": ("source.avif", b"test bytes", "image/avif")},
+        files={
+            "file": (
+                "source.avif",
+                b"dummy bytes for extension test",
+                "image/avif",
+            )
+        },
     )
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["media_type"] == "image"
-    assert body["status"] == "completed"
-    assert len(body["sha256"]) == 64
+assert response.status_code == 202
+
+body = response.json()
+assert body["filename"] == "source.avif"
+assert body["media_type"] == "image"
+assert body["status"] == "completed"
+assert len(body["sha256"]) == 64
 
 
 def test_rejects_unsupported_file_extension():
     response = client.post(
         "/analyses",
-        files={"file": ("document.txt", b"test", "text/plain")},
+        files={
+            "file": (
+                "document.txt",
+                b"not a supported media file",
+                "text/plain",
+            )
+        },
     )
 
     assert response.status_code == 415
+    assert "Unsupported file extension" in response.json()["detail"]
 
 
 def test_rejects_empty_upload():
     response = client.post(
         "/analyses",
-        files={"file": ("empty.png", b"", "image/png")},
+        files={
+            "file": (
+                "empty.png",
+                b"",
+                "image/png",
+            )
+        },
     )
 
     assert response.status_code == 400
+    assert response.json()["detail"] == "The uploaded file is empty."

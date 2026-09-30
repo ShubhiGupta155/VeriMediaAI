@@ -29,10 +29,13 @@ SUPPORTED_EXTENSIONS = {
 }
 
 
-@router.post("/analyses")
+@router.post("/analyses", status_code=202)
 async def create_analysis(file: UploadFile = File(...)):
     if not file.filename:
-        raise HTTPException(status_code=400, detail="A filename is required.")
+        raise HTTPException(
+            status_code=400,
+            detail="A filename is required.",
+        )
 
     filename = Path(file.filename).name
     extension = Path(filename).suffix.lower()
@@ -48,7 +51,10 @@ async def create_analysis(file: UploadFile = File(...)):
     await file.close()
 
     if not contents:
-        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file is empty.",
+        )
 
     if len(contents) > MAX_UPLOAD_BYTES:
         raise HTTPException(
@@ -67,11 +73,15 @@ async def create_analysis(file: UploadFile = File(...)):
         analysis_id,
     )
 
+    # Keep each response field here exactly once.
     return {
         "analysis_id": analysis_id,
         "filename": filename,
         "media_type": media_type,
         "sha256": file_hash,
         "bytes_received": len(contents),
-        **result,
+        "status": result["status"],
+        "module_results": result["module_results"],
+        "fusion": result["fusion"],
+        "risk_assessment": result["risk_assessment"],
     }
