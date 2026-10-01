@@ -16,12 +16,13 @@ def fake_process_uploaded_media(contents, filename, media_type, analysis_id):
 
 
 def test_accepts_avif_extension_without_testing_decoding(monkeypatch):
-   monkeypatch.setattr(
+    # Tests extension acceptance only; dummy bytes do not test AVIF decoding.
+    monkeypatch.setattr(
         "backend.routes.analysis.process_uploaded_media",
         fake_process_uploaded_media,
     )
 
-response = client.post(
+    response = client.post(
         "/analyses",
         files={
             "file": (
@@ -32,13 +33,13 @@ response = client.post(
         },
     )
 
-assert response.status_code == 202
+    assert response.status_code == 202
 
-body = response.json()
-assert body["filename"] == "source.avif"
-assert body["media_type"] == "image"
-assert body["status"] == "completed"
-assert len(body["sha256"]) == 64
+    body = response.json()
+    assert body["filename"] == "source.avif"
+    assert body["media_type"] == "image"
+    assert body["status"] == "completed"
+    assert len(body["sha256"]) == 64
 
 
 def test_rejects_unsupported_file_extension():
