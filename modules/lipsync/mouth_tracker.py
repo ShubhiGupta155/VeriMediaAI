@@ -2,6 +2,7 @@ import cv2
 
 from modules.lipsync.landmarks import (
     _extract_lip_landmarks_from_image,
+    
 )
 
 
@@ -65,9 +66,11 @@ def track_mouth_movement(video_path):
 
         frame_count += 1
 
+        # Reuse the shared landmark extraction logic for each video frame.
         current_landmarks = _extract_lip_landmarks_from_image(
-            frame
-        )
+    frame
+)
+        
 
         if previous_landmarks and current_landmarks:
             movement = calculate_mouth_movement(
