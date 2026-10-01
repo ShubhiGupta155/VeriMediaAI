@@ -715,6 +715,36 @@ def main():
         / "image_evaluation.json"
     )
 
+    threshold_analysis = [
+        calculate_threshold_metrics(
+            all_results,
+            threshold,
+        )
+        for threshold in [
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+        ]
+    ]
+
+    save_evaluation_results(
+        output_path,
+        all_results,
+        metrics,
+        total,
+        correct,
+        errors,
+        threshold_analysis,
+        calibration_analysis,
+    )
+
+
 def save_evaluation_results(
     output_path,
     all_results,
@@ -725,5 +755,61 @@ def save_evaluation_results(
     threshold_analysis,
     calibration_analysis,
 ):
- if __name__ == "__main__":
+    """
+    Save complete image detector evaluation results
+    to a JSON file.
+    """
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    accuracy = (
+        correct / total
+        if total > 0
+        else 0.0
+    )
+
+    evaluation = {
+        "summary": {
+            "total_images": total,
+            "correct_predictions": correct,
+            "evaluation_errors": errors,
+            "accuracy": accuracy,
+        },
+        "confusion_matrix": {
+            "true_positive": metrics["true_positive"],
+            "true_negative": metrics["true_negative"],
+            "false_positive": metrics["false_positive"],
+            "false_negative": metrics["false_negative"],
+        },
+        "classification_metrics": {
+            "precision": metrics["precision"],
+            "recall": metrics["recall"],
+            "f1_score": metrics["f1_score"],
+        },
+        "threshold_analysis": threshold_analysis,
+        "calibration_analysis": calibration_analysis,
+        "results": all_results,
+    }
+
+    with open(
+        output_path,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            evaluation,
+            file,
+            indent=4,
+        )
+
+    print(
+        f"\nEvaluation results saved to: {output_path}"
+    )
+
+
+if __name__ == "__main__":
     main()
