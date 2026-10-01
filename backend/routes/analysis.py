@@ -78,7 +78,7 @@ async def create_analysis(file: UploadFile = File(...)):
         "analysis_id": analysis_id,
         "filename": filename,
         "media_type": media_type,
-        "sha256": file_hash,
+        "file_hash": file_hash,
         "bytes_received": len(contents),
         "status": result["status"],
         "module_results": result["module_results"],
