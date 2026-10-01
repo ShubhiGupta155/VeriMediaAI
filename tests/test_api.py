@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 
-
 client = TestClient(app)
 
 
@@ -12,13 +11,13 @@ def fake_process_uploaded_media(contents, filename, media_type, analysis_id):
     return {
         "status": "completed",
         "module_results": [],
-        "fusion": {"fused_score": 0.5},
-        "risk_assessment": {"assessment": "Inconclusive"},
+        "fusion": {},
+        "risk_assessment": {},
     }
 
 
 def test_accepts_avif_extension_without_testing_decoding(monkeypatch):
-    # This checks extension acceptance only, not AVIF image decoding.
+    # Checks extension acceptance only, not AVIF decoding.
     monkeypatch.setattr(
         "backend.routes.analysis.process_uploaded_media",
         fake_process_uploaded_media,
@@ -41,8 +40,8 @@ def test_accepts_avif_extension_without_testing_decoding(monkeypatch):
     body = response.json()
     assert body["filename"] == "source.avif"
     assert body["media_type"] == "image"
-    assert body["status"] == "completed"
     assert body["file_hash"] == hashlib.sha256(contents).hexdigest()
+    assert body["status"] == "completed"
 
 
 def test_rejects_unsupported_file_extension():
@@ -50,7 +49,7 @@ def test_rejects_unsupported_file_extension():
         "/analyses",
         files={
             "file": (
-                "document.txt",
+                "source.txt",
                 b"not a supported media file",
                 "text/plain",
             )
