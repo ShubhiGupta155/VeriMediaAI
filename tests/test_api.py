@@ -1,18 +1,35 @@
+import hashlib
+
 from fastapi.testclient import TestClient
 
 from backend.main import app
 
-
 client = TestClient(app)
 
 
-def test_accepts_avif_upload():
+def fake_process_uploaded_media(contents, filename, media_type, analysis_id):
+    return {
+        "status": "completed",
+        "module_results": [],
+        "fusion": {},
+        "risk_assessment": {},
+    }
+
+
+def test_accepts_avif_extension_without_testing_decoding(monkeypatch):
+    # Checks extension acceptance only, not AVIF decoding.
+    monkeypatch.setattr(
+        "backend.routes.analysis.process_uploaded_media",
+        fake_process_uploaded_media,
+    )
+
+    contents = b"dummy bytes for extension test"
     response = client.post(
         "/analyses",
         files={
             "file": (
                 "source.avif",
-                b"test AVIF upload bytes",
+                contents,
                 "image/avif",
             )
         },
@@ -23,9 +40,8 @@ def test_accepts_avif_upload():
     body = response.json()
     assert body["filename"] == "source.avif"
     assert body["media_type"] == "image"
-    assert body["status"] == "accepted"
-    assert len(body["sha256"]) == 64
-    assert body["bytes_received"] == len(b"test AVIF upload bytes")
+    assert body["file_hash"] == hashlib.sha256(contents).hexdigest()
+    assert body["status"] == "completed"
 
 
 def test_rejects_unsupported_file_extension():
@@ -33,7 +49,7 @@ def test_rejects_unsupported_file_extension():
         "/analyses",
         files={
             "file": (
-                "document.txt",
+                "source.txt",
                 b"not a supported media file",
                 "text/plain",
             )
