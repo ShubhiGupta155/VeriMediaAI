@@ -2,10 +2,7 @@ import cv2
 
 from modules.lipsync.landmarks import (
     _extract_lip_landmarks_from_image,
-    
 )
-
-
 def calculate_mouth_movement(previous_landmarks, current_landmarks):
     """
     Calculate mouth movement between two consecutive frames.
@@ -70,8 +67,6 @@ def track_mouth_movement(video_path):
         current_landmarks = _extract_lip_landmarks_from_image(
     frame
 )
-        
-
         if previous_landmarks and current_landmarks:
             movement = calculate_mouth_movement(
                 previous_landmarks,
