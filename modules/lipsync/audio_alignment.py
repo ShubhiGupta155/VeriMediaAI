@@ -1,7 +1,6 @@
 import os
 
 import librosa
-import numpy as np
 
 
 def detect_speech_activity(
@@ -50,4 +49,64 @@ def detect_speech_activity(
         "sample_rate": sample_rate,
         "duration": float(len(audio) / sample_rate),
         "speech_segments": len(speech_intervals)
+    }
+
+
+def calculate_audio_mouth_alignment(
+    speech_intervals,
+    mouth_intervals,
+    tolerance=0.2
+):
+    """
+    Compare speech intervals with mouth movement intervals.
+
+    Returns:
+        dict containing alignment score and mismatch intervals.
+    """
+
+    if not speech_intervals:
+        return {
+            "alignment_score": 0.0,
+            "matched_intervals": 0,
+            "mismatch_intervals": []
+        }
+
+    matched_intervals = 0
+    mismatch_intervals = []
+
+    for speech_start, speech_end in speech_intervals:
+
+        matched = False
+
+        for mouth_start, mouth_end in mouth_intervals:
+
+            overlap_start = max(
+                speech_start,
+                mouth_start
+            )
+
+            overlap_end = min(
+                speech_end,
+                mouth_end
+            )
+
+            if overlap_end >= overlap_start - tolerance:
+                matched = True
+                break
+
+        if matched:
+            matched_intervals += 1
+        else:
+            mismatch_intervals.append(
+                (speech_start, speech_end)
+            )
+
+    alignment_score = (
+        matched_intervals / len(speech_intervals)
+    )
+
+    return {
+        "alignment_score": float(alignment_score),
+        "matched_intervals": matched_intervals,
+        "mismatch_intervals": mismatch_intervals
     }
