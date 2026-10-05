@@ -76,6 +76,9 @@ def test_successful_video_tracking():
     assert "frame_count" in result
     assert "movement_frames" in result
     assert "average_mouth_movement" in result
+    
+    assert "movement_intervals" in result
+    assert isinstance(result["movement_intervals"], list)
 
     assert result["status"] == "success"
     assert isinstance(result["frame_count"], int)
@@ -85,3 +88,19 @@ def test_successful_video_tracking():
     assert result["frame_count"] > 0
     assert result["movement_frames"] >= 0
     assert result["average_mouth_movement"] >= 0.0
+
+    if result["movement_intervals"]:
+     interval = result["movement_intervals"][0]
+
+    assert isinstance(interval, dict)
+    assert "start" in interval
+    assert "end" in interval
+    assert "movement" in interval
+
+    assert isinstance(interval["start"], float)
+    assert isinstance(interval["end"], float)
+    assert isinstance(interval["movement"], float)
+
+    assert interval["start"] >= 0.0
+    assert interval["end"] >= interval["start"]
+    assert interval["movement"] >= 0.0
