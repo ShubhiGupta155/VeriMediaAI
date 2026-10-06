@@ -35,8 +35,7 @@ def calculate_mouth_movement(previous_landmarks, current_landmarks):
 
     return total_movement / len(current_landmarks)
 
-
-def track_mouth_movement(video_path):
+def track_mouth_movement(video_path, movement_threshold=2.0):
     """
     Track approximate mouth movement across video frames.
 
@@ -69,7 +68,6 @@ def track_mouth_movement(video_path):
 
         frame_count += 1
 
-        # Reuse the shared landmark extraction logic.
         current_landmarks = _extract_lip_landmarks_from_image(
             frame
         )
@@ -80,17 +78,20 @@ def track_mouth_movement(video_path):
                 current_landmarks
             )
 
-            movements.append(movement)
+            if movement >= movement_threshold:
+                movements.append(movement)
 
-            current_time = (frame_count - 1) / fps
+                current_time = (frame_count - 1) / fps
 
-            movement_intervals.append(
-                {
-                    "start": float(current_time),
-                    "end": float(current_time + (1 / fps)),
-                    "movement": float(movement)
-                }
-            )
+                movement_intervals.append(
+                    {
+                        "start": float(current_time),
+                        "end": float(
+                            current_time + (1 / fps)
+                        ),
+                        "movement": float(movement)
+                    }
+                )
 
         if current_landmarks:
             previous_landmarks = current_landmarks

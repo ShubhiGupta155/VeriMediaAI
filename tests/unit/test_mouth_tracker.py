@@ -104,3 +104,51 @@ def test_successful_video_tracking():
     assert interval["start"] >= 0.0
     assert interval["end"] >= interval["start"]
     assert interval["movement"] >= 0.0
+
+
+def test_mouth_movement_below_threshold_is_ignored():
+    previous = [
+        (0, 0),
+        (10, 0),
+        (0, 10),
+        (10, 10)
+    ]
+
+    current = [
+        (1, 0),
+        (11, 0),
+        (1, 10),
+        (11, 10)
+    ]
+
+    movement = calculate_mouth_movement(
+        previous,
+        current
+    )
+
+    assert movement == 1.0
+    assert movement < 2.0
+
+
+def test_mouth_movement_above_threshold_is_detected():
+    previous = [
+        (0, 0),
+        (10, 0),
+        (0, 10),
+        (10, 10)
+    ]
+
+    current = [
+        (3, 4),
+        (13, 4),
+        (3, 14),
+        (13, 14)
+    ]
+
+    movement = calculate_mouth_movement(
+        previous,
+        current
+    )
+
+    assert movement == 5.0
+    assert movement >= 2.0
