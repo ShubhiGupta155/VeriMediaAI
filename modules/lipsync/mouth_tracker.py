@@ -35,13 +35,12 @@ def calculate_mouth_movement(previous_landmarks, current_landmarks):
 
     return total_movement / len(current_landmarks)
 
-
-def track_mouth_movement(video_path):
+def track_mouth_movement(video_path, movement_threshold=2.0):
     """
     Track approximate mouth movement across video frames.
 
     Returns:
-        dict containing movement measurements and status.
+        dict containing movement measurements and time intervals.
     """
 
     capture = cv2.VideoCapture(video_path)
@@ -53,7 +52,13 @@ def track_mouth_movement(video_path):
 
     previous_landmarks = None
     movements = []
+    movement_intervals = []
     frame_count = 0
+
+    fps = capture.get(cv2.CAP_PROP_FPS)
+
+    if fps <= 0:
+        fps = 30.0
 
     while True:
         success, frame = capture.read()
@@ -63,17 +68,30 @@ def track_mouth_movement(video_path):
 
         frame_count += 1
 
-        # Reuse the shared landmark extraction logic for each video frame.
         current_landmarks = _extract_lip_landmarks_from_image(
-    frame
-)
+            frame
+        )
+
         if previous_landmarks and current_landmarks:
             movement = calculate_mouth_movement(
                 previous_landmarks,
                 current_landmarks
             )
 
-            movements.append(movement)
+            if movement >= movement_threshold:
+                movements.append(movement)
+
+                current_time = (frame_count - 1) / fps
+
+                movement_intervals.append(
+                    {
+                        "start": float(current_time),
+                        "end": float(
+                            current_time + (1 / fps)
+                        ),
+                        "movement": float(movement)
+                    }
+                )
 
         if current_landmarks:
             previous_landmarks = current_landmarks
@@ -90,5 +108,6 @@ def track_mouth_movement(video_path):
         "status": "success",
         "frame_count": frame_count,
         "movement_frames": len(movements),
-        "average_mouth_movement": average_movement
+        "average_mouth_movement": average_movement,
+        "movement_intervals": movement_intervals
     }
