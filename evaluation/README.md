@@ -59,7 +59,7 @@ The evaluation script:
 6. Calculates classification metrics.
 7. Performs false-positive and false-negative analysis.
 8. Calculates per-class accuracy.
-9. Evaluates multiple confidence thresholds.
+9. Evaluates multiple AI-generated probability thresholds.
 10. Performs confidence calibration analysis.
 11. Saves the complete evaluation results as JSON.
 The expected labels are:
@@ -88,21 +88,23 @@ The evaluation identifies:
 - False positives: real images predicted as AI-generated
 - False negatives: AI-generated images predicted as real
 This analysis is important because overall accuracy alone does not show the types of mistakes made by the detector.
-## Confidence Threshold Analysis
-The evaluation tests multiple AI-generation confidence thresholds:
-0.1
-0.2
-0.3
-0.4
-0.5
-0.6
-0.7
-0.8
-0.9
+## AI-Generated Probability Threshold Analysis
 
-For each threshold, the evaluation calculates the resulting classification performance.
-This allows the effect of changing the decision threshold to be studied instead of assuming that one threshold is universally optimal.
-The thresholds are analysis values and should not be interpreted as calibrated forensic probabilities.
+The evaluation tests multiple thresholds applied to the detector's `ai_generated_probability` output:
+
+- 0.1
+- 0.2
+- 0.3
+- 0.4
+- 0.5
+- 0.6
+- 0.7
+- 0.8
+- 0.9
+
+For each threshold, the evaluation calculates the resulting classification performance. A prediction is classified as AI-generated when its `ai_generated_probability` is greater than or equal to the selected threshold.
+
+This analysis studies how changing the decision threshold affects classification performance. These thresholds are analysis values and should not be interpreted as calibrated forensic probabilities.
 ## Confidence Calibration Analysis
 The evaluation also groups predictions into confidence bins and compares model confidence with observed correctness.
 This is used to investigate whether high-confidence predictions are actually more reliable on the evaluation dataset.
@@ -168,7 +170,7 @@ The evaluation is intended to establish a baseline for the VeriMedia AI image de
 The results should be used to:
 - identify detector strengths and weaknesses
 - analyze false positives and false negatives
-- study confidence thresholds
+- study AI-generated probability thresholds
 - investigate confidence calibration
 - guide future dataset expansion and detector improvement
 The current results should not be presented as a universal accuracy guarantee for AI-generated image detection.

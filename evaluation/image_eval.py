@@ -375,7 +375,7 @@ def print_threshold_analysis(results):
     ]
 
     print("\n" + "-" * 75)
-    print("CONFIDENCE THRESHOLD ANALYSIS")
+    print("AI-GENERATED PROBABILITY THRESHOLD ANALYSIS")
     print("-" * 75)
 
     print(
