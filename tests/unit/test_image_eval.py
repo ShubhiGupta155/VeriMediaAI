@@ -122,16 +122,16 @@ def test_calibration_bins_include_accuracy_and_gap():
     assert high_bin["calibration_gap"] == pytest.approx(0.35)
 
 
-def test_calibration_empty_results_return_empty_bins_with_zero_values():
+def test_calibration_empty_results_return_none_for_empty_bin_metrics():
     bins = calculate_calibration_bins([], bin_count=4)
 
     assert len(bins) == 4
 
     for calibration_bin in bins:
         assert calibration_bin["count"] == 0
-        assert calibration_bin["average_confidence"] == 0.0
-        assert calibration_bin["accuracy"] == 0.0
-        assert calibration_bin["calibration_gap"] == 0.0
+        assert calibration_bin["average_confidence"] is None
+        assert calibration_bin["accuracy"] is None
+        assert calibration_bin["calibration_gap"] is None
 
 
 def test_calibration_includes_confidence_equal_to_one():
