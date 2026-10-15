@@ -19,3 +19,4 @@ soundfile
 scipy
 reportlab
 pytest
+imageio-ffmpeg
