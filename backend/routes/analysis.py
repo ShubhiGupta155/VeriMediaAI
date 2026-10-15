@@ -1,11 +1,16 @@
 import hashlib
 import uuid
 from pathlib import Path
+from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from backend.services.orchestration_service import process_uploaded_media
+from database.connection import get_db
+from database.models import AnalysisRecord
 
 router = APIRouter(tags=["analysis"])
 
@@ -30,7 +35,10 @@ SUPPORTED_EXTENSIONS = {
 
 
 @router.post("/analyses", status_code=202)
-async def create_analysis(file: UploadFile = File(...)):
+async def create_analysis(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     if not file.filename:
         raise HTTPException(
             status_code=400,
@@ -73,8 +81,7 @@ async def create_analysis(file: UploadFile = File(...)):
         analysis_id,
     )
 
-    # Keep each response field here exactly once.
-    return {
+    response_body = {
         "analysis_id": analysis_id,
         "filename": filename,
         "media_type": media_type,
@@ -85,3 +92,45 @@ async def create_analysis(file: UploadFile = File(...)):
         "fusion": result["fusion"],
         "risk_assessment": result["risk_assessment"],
     }
+
+    record = AnalysisRecord(
+        analysis_id=analysis_id,
+        filename=filename,
+        media_type=media_type,
+        file_hash=file_hash,
+        bytes_received=len(contents),
+        status=result["status"],
+        response_json=response_body,
+    )
+
+    try:
+        db.add(record)
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Analysis completed but could not be saved.",
+        ) from exc
+
+    return response_body
+
+
+@router.get("/analyses/{analysis_id}")
+def get_analysis(
+    analysis_id: str,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    record = (
+        db.query(AnalysisRecord)
+        .filter(AnalysisRecord.analysis_id == analysis_id)
+        .first()
+    )
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Analysis not found.",
+        )
+
+    return record.response_json
