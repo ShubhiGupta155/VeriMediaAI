@@ -184,6 +184,9 @@ def test_saved_json_contains_expected_structure(tmp_path, sample_results):
         "precision",
         "recall",
         "f1_score",
+        "false_positive_rate",
+        "false_negative_rate",
+        "roc_auc",
     }
     assert saved["threshold_analysis"] == threshold_analysis
     assert saved["calibration_analysis"] == calibration_analysis
@@ -214,3 +217,56 @@ def test_evaluate_folder_counts_failed_inference(tmp_path, monkeypatch):
     assert correct == 0
     assert errors == 1
     assert results == []
+from evaluation.image_eval import calculate_metrics
+
+
+def test_error_rates_and_roc_auc():
+    results = [
+        {
+            "expected": "ai_generated",
+            "predicted": "ai_generated",
+            "ai_generated_probability": 0.9,
+        },
+        {
+            "expected": "ai_generated",
+            "predicted": "real",
+            "ai_generated_probability": 0.7,
+        },
+        {
+            "expected": "real",
+            "predicted": "ai_generated",
+            "ai_generated_probability": 0.8,
+        },
+        {
+            "expected": "real",
+            "predicted": "real",
+            "ai_generated_probability": 0.1,
+        },
+    ]
+
+    metrics = calculate_metrics(results)
+
+    assert metrics["false_positive_rate"] == 0.5
+    assert metrics["false_negative_rate"] == 0.5
+    assert metrics["roc_auc"] == 0.75
+
+
+def test_roc_auc_is_none_for_single_class():
+    results = [
+        {
+            "expected": "real",
+            "predicted": "real",
+            "ai_generated_probability": 0.1,
+        },
+        {
+            "expected": "real",
+            "predicted": "real",
+            "ai_generated_probability": 0.2,
+        },
+    ]
+
+    metrics = calculate_metrics(results)
+
+    assert metrics["roc_auc"] is None
+    assert metrics["false_positive_rate"] == 0.0
+    assert metrics["false_negative_rate"] == 0.0
