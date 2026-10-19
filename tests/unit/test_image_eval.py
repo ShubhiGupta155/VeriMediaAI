@@ -269,4 +269,30 @@ def test_roc_auc_is_none_for_single_class():
 
     assert metrics["roc_auc"] is None
     assert metrics["false_positive_rate"] == 0.0
-    assert metrics["false_negative_rate"] == 0.0
+    assert metrics["false_negative_rate"] is None
+
+def test_empty_results_have_undefined_error_rates():
+    metrics = calculate_metrics([])
+
+    assert metrics["false_positive_rate"] is None
+    assert metrics["false_negative_rate"] is None
+    assert metrics["roc_auc"] is None
+
+def test_false_positive_rate_is_none_when_no_real_samples():
+    results = [
+        {
+            "expected": "ai_generated",
+            "predicted": "ai_generated",
+            "ai_generated_probability": 0.9,
+        },
+        {
+            "expected": "ai_generated",
+            "predicted": "real",
+            "ai_generated_probability": 0.7,
+        },
+    ]
+
+    metrics = calculate_metrics(results)
+
+    assert metrics["false_positive_rate"] is None
+    assert metrics["false_negative_rate"] == 0.5

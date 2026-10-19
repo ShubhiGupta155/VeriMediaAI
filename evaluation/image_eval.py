@@ -176,13 +176,13 @@ def calculate_metrics(results):
     fpr = (
         false_positive / (false_positive + true_negative)
         if false_positive + true_negative > 0
-        else 0.0
+        else None
     )
 
     fnr = (
         false_negative / (false_negative + true_positive)
         if false_negative + true_positive > 0
-        else 0.0
+        else None
     )
 
     roc_auc = None
