@@ -7,6 +7,7 @@ from evaluation.image_eval import (
     calculate_metrics,
     calculate_threshold_metrics,
     calculate_calibration_bins,
+    calculate_expected_calibration_error,
     save_evaluation_results,
     evaluate_folder,
 )
@@ -190,6 +191,9 @@ def test_saved_json_contains_expected_structure(tmp_path, sample_results):
     }
     assert saved["threshold_analysis"] == threshold_analysis
     assert saved["calibration_analysis"] == calibration_analysis
+    assert saved["expected_calibration_error"] == pytest.approx(
+        calculate_expected_calibration_error(sample_results)
+    )
     assert saved["results"] == sample_results
 
 
@@ -296,3 +300,30 @@ def test_false_positive_rate_is_none_when_no_real_samples():
 
     assert metrics["false_positive_rate"] is None
     assert metrics["false_negative_rate"] == 0.5
+
+
+def test_expected_calibration_error():
+    results = [
+        make_result("real", "real", 0.1, 0.8),
+        make_result("ai_generated", "real", 0.4, 0.8),
+        make_result("ai_generated", "ai_generated", 0.9, 0.9),
+    ]
+
+    ece = calculate_expected_calibration_error(
+        results, bin_count=2
+    )
+
+    assert ece == pytest.approx(1 / 6)
+
+
+def test_expected_calibration_error_empty_results():
+    assert calculate_expected_calibration_error([]) is None
+
+
+def test_expected_calibration_error_perfect_calibration():
+    results = [
+        make_result("real", "real", 0.1, 1.0),
+        make_result("ai_generated", "ai_generated", 0.9, 1.0),
+    ]
+
+    assert calculate_expected_calibration_error(results) == 0.0
