@@ -21,6 +21,34 @@ evaluation/
 ├── results/
 │   └── image_evaluation.json
 └── README.md
+
+## Dataset Manifest and Validation
+
+The file `evaluation/dataset_manifest.csv` records each evaluation image,
+its expected label, documented source, generation method when known,
+and notes.
+
+The manifest currently contains 16 images:
+- 10 real images
+- 6 AI-generated images
+
+Validate the manifest from the project root:
+
+```powershell
+python evaluation/validate_dataset_manifest.py
+```
+
+The validator checks:
+- Required CSV columns
+- Valid labels and supported image extensions
+- Duplicate filenames
+- Correct label-to-folder mapping
+- Missing or unlisted dataset images
+
+Run the validator after adding, removing, or relabeling dataset images.
+The manifest documents the currently known provenance; it does not
+independently verify image authenticity or ground-truth labels.
+
 ## Dataset Source
 ### Real Images
 The real-image dataset contains 10 images that were personally obtained from WhatsApp and saved locally.

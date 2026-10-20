@@ -50,23 +50,36 @@ def detect_ai_generated(image_path):
         outputs = model(**inputs)
 
     probabilities = torch.softmax(outputs.logits, dim=-1)[0]
-
     labels = model.config.id2label
 
+    # Normalize model labels and validate the expected classes.
+    normalized_labels = {
+        str(label).strip().lower(): int(index)
+        for index, label in labels.items()
+    }
+
+    expected_labels = {"real", "ai_generated"}
+
+    if set(normalized_labels) != expected_labels:
+        raise ValueError(
+            f"Unsupported model labels: {labels}. "
+            f"Expected exactly {sorted(expected_labels)}."
+        )
+
     scores = {
-        labels[i]: float(probabilities[i])
-        for i in range(len(probabilities))
+        label: float(probabilities[index])
+        for label, index in normalized_labels.items()
     }
 
     predicted_index = int(torch.argmax(probabilities))
-    predicted_label = labels[predicted_index]
+    predicted_label = str(labels[predicted_index]).strip().lower()
 
     return {
         "filename": path.name,
         "predicted_label": predicted_label,
-        "real_probability": round(scores.get("real", 0.0), 6),
+        "real_probability": round(scores["real"], 6),
         "ai_generated_probability": round(
-            scores.get("ai_generated", 0.0), 6
+            scores["ai_generated"], 6
         ),
         "confidence": round(
             float(probabilities[predicted_index]), 6

@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 import json
+from sklearn.metrics import roc_auc_score
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -125,26 +126,32 @@ def evaluate_folder(folder, expected_label):
 def calculate_metrics(results):
     """
     Calculate confusion matrix and classification metrics.
-    """
 
+    ROC-AUC uses ai_generated_probability as the score for
+    the positive class (ai_generated). It is None when the
+    evaluation data contains only one class.
+    """
     true_positive = 0
     true_negative = 0
     false_positive = 0
     false_negative = 0
 
+    y_true = []
+    y_scores = []
+
     for result in results:
         expected = result["expected"]
         predicted = result["predicted"]
 
+        y_true.append(1 if expected == "ai_generated" else 0)
+        y_scores.append(result["ai_generated_probability"])
+
         if expected == "ai_generated" and predicted == "ai_generated":
             true_positive += 1
-
         elif expected == "real" and predicted == "real":
             true_negative += 1
-
         elif expected == "real" and predicted == "ai_generated":
             false_positive += 1
-
         elif expected == "ai_generated" and predicted == "real":
             false_negative += 1
 
@@ -166,6 +173,22 @@ def calculate_metrics(results):
         else 0.0
     )
 
+    fpr = (
+        false_positive / (false_positive + true_negative)
+        if false_positive + true_negative > 0
+        else None
+    )
+
+    fnr = (
+        false_negative / (false_negative + true_positive)
+        if false_negative + true_positive > 0
+        else None
+    )
+
+    roc_auc = None
+    if len(set(y_true)) == 2:
+        roc_auc = float(roc_auc_score(y_true, y_scores))
+
     return {
         "true_positive": true_positive,
         "true_negative": true_negative,
@@ -174,8 +197,10 @@ def calculate_metrics(results):
         "precision": precision,
         "recall": recall,
         "f1_score": f1_score,
+        "false_positive_rate": fpr,
+        "false_negative_rate": fnr,
+        "roc_auc": roc_auc,
     }
-
 
 def print_error_analysis(results):
     """
@@ -270,6 +295,9 @@ def save_evaluation_results(
             "precision": metrics["precision"],
             "recall": metrics["recall"],
             "f1_score": metrics["f1_score"],
+            "false_positive_rate": metrics["false_positive_rate"],
+            "false_negative_rate": metrics["false_negative_rate"],
+            "roc_auc": metrics["roc_auc"],
         },
         "threshold_analysis": threshold_analysis,
         "calibration_analysis": calibration_analysis,
