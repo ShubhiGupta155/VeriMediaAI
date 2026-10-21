@@ -301,6 +301,16 @@ def save_evaluation_results(
         },
         "threshold_analysis": threshold_analysis,
         "calibration_analysis": calibration_analysis,
+        "expected_calibration_error": (
+            sum(
+                (calibration_bin["count"] / total)
+                * calibration_bin["calibration_gap"]
+                for calibration_bin in calibration_analysis
+                if calibration_bin["count"] > 0
+            )
+            if total > 0
+            else None
+        ),
         "results": all_results,
     }
 
@@ -514,12 +524,35 @@ def calculate_calibration_bins(results, bin_count=10):
     return bins
 
 
+def calculate_expected_calibration_error(results, bin_count=10):
+    """Calculate weighted Expected Calibration Error (ECE)."""
+    if not results:
+        return None
+
+    bins = calculate_calibration_bins(results, bin_count=bin_count)
+    total = len(results)
+
+    return sum(
+        (calibration_bin["count"] / total)
+        * calibration_bin["calibration_gap"]
+        for calibration_bin in bins
+        if calibration_bin["count"] > 0
+    )
+
+
 def print_calibration_analysis(results):
     """
     Print confidence calibration statistics.
     """
 
     bins = calculate_calibration_bins(results)
+    ece = calculate_expected_calibration_error(results)
+
+    print(
+        f"\nExpected Calibration Error (ECE): "
+        f"{ece:.2%}" if ece is not None
+        else "\nExpected Calibration Error (ECE): N/A"
+    )
 
     print("\n" + "-" * 75)
     print("CONFIDENCE CALIBRATION ANALYSIS")
