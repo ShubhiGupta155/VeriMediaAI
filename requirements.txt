@@ -2,7 +2,7 @@ torch
 torchvision
 transformers
 pillow
-opencv-python
+opencv-python==4.13.0.92
 numpy
 pandas
 matplotlib
@@ -19,3 +19,4 @@ soundfile
 scipy
 reportlab
 pytest
+imageio-ffmpeg
