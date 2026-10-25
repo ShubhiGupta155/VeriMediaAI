@@ -10,6 +10,7 @@ from evaluation.image_eval import (
     calculate_expected_calibration_error,
     save_evaluation_results,
     evaluate_folder,
+    print_error_rates,
 )
 
 
@@ -327,3 +328,29 @@ def test_expected_calibration_error_perfect_calibration():
     ]
 
     assert calculate_expected_calibration_error(results) == 0.0
+
+
+def test_print_error_rates_formats_percentages(capsys):
+    metrics = {
+        "false_positive_rate": 0.25,
+        "false_negative_rate": 0.5,
+    }
+
+    print_error_rates(metrics)
+
+    output = capsys.readouterr().out
+    assert "False-positive rate: 25.00%" in output
+    assert "False-negative rate: 50.00%" in output
+
+
+def test_print_error_rates_handles_undefined_rates(capsys):
+    metrics = {
+        "false_positive_rate": None,
+        "false_negative_rate": None,
+    }
+
+    print_error_rates(metrics)
+
+    output = capsys.readouterr().out
+    assert "False-positive rate: N/A" in output
+    assert "False-negative rate: N/A" in output

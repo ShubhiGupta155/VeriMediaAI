@@ -637,6 +637,25 @@ def print_class_accuracy(results):
         print("AI-generated accuracy: N/A")
 
 
+
+def print_error_rates(metrics):
+    """Print false-positive and false-negative rates."""
+    fpr = metrics["false_positive_rate"]
+    fnr = metrics["false_negative_rate"]
+
+    print(
+        f"False-positive rate: {fpr:.2%}"
+        if fpr is not None
+        else "False-positive rate: N/A"
+    )
+    print(
+        f"False-negative rate: {fnr:.2%}"
+        if fnr is not None
+        else "False-negative rate: N/A"
+    )
+
+
+
 def main():
     try:
         (
@@ -757,7 +776,19 @@ def main():
         f"F1-score:            "
         f"{metrics['f1_score']:.2%}"
     )
+    fpr = metrics["false_positive_rate"]
+    fnr = metrics["false_negative_rate"]
 
+    print(
+        f"False-positive rate: {fpr:.2%}"
+        if fpr is not None
+        else "False-positive rate: N/A"
+    )
+    print(
+        f"False-negative rate: {fnr:.2%}"
+        if fnr is not None
+        else "False-negative rate: N/A"
+    )
     print_error_analysis(all_results)
     print_class_accuracy(all_results)
 
