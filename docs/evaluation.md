@@ -74,3 +74,43 @@ correctness of labels.
 
 When expanding the dataset, preserve the existing baseline and document
 the source and ground-truth basis for every added image.
+
+---
+
+## Video Forensics Evaluation (Member 2)
+
+### 1. Methodology & Script
+Video forensics pipeline evaluation is automated via `evaluation/video_eval.py`.
+It assesses:
+- Video-level accuracy, precision, recall, and F1-score
+- Confusion matrix (TP, FP, TN, FN)
+- False Positive Rate (FPR) and False Negative Rate (FNR)
+- Execution time per video (profiling frame extraction, face detection, and inference throughput)
+
+### 2. Dataset Structure
+The video evaluator expects datasets arranged by ground-truth classes:
+```text
+evaluation/video_dataset/
+├── real/
+│   ├── sample_real_01.mp4
+│   └── ...
+└── fake/
+    ├── sample_fake_01.mp4
+    └── ...
+```
+
+### 3. Running Video Evaluation
+From the project root:
+```powershell
+python evaluation/video_eval.py --dataset-dir evaluation/video_dataset --model-path path/to/ff_xception.pth
+```
+Alternatively, configure the model via environment variable:
+```powershell
+$env:VERIMEDIA_XCEPTION_CHECKPOINT = "path/to/ff_xception.pth"
+python evaluation/video_eval.py --dataset-dir evaluation/video_dataset
+```
+
+### 4. Benchmark Status & Provenance
+- **Published Benchmarks (Literature):** FaceForensics++ original paper reports ~99.7% frame-level binary classification accuracy on raw (c0) and high quality (c23) manipulations with Xception. On compressed video (c40), published accuracy degrades significantly (~81%).
+- **Current Repository Status:** Large video benchmarks (such as full FaceForensics++ gigabyte test sets) and official weight files are not committed to the Git repository due to repository size and licensing constraints (TUM FaceForensics++ Terms of Use).
+- **Available Evaluator:** The metric computation, confusion matrix generation, error handling, and pipeline batch runner are fully implemented and verified via unit tests (`tests/test_video.py::TestVideoEvaluation`). Video evaluation on local test videos can be executed immediately once local test clips and model checkpoints are mounted.
