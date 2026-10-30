@@ -137,29 +137,16 @@ def analyze_video(
 To adapt the video pipeline output to the backend `ModuleResult` schema:
 
 ```python
-from backend.schemas.analysis import ModuleResult, ModuleStatus, MediaType
+from backend.services.orchestration_service import adapt_video_result
 from modules.video.pipeline import analyze_video
 
 raw_video_result = analyze_video(file_path)
-
-if raw_video_result["status"] == "success":
-    status = ModuleStatus.SUCCESS
-elif raw_video_result["status"] == "insufficient_evidence":
-    status = ModuleStatus.UNAVAILABLE
-else:
-    status = ModuleStatus.FAILED
-
-module_result = ModuleResult(
-    analysis_id=analysis_id,
-    media_type=MediaType.VIDEO,
-    module="video",
-    status=status,
-    scores=raw_video_result["scores"],
-    evidence=[],
-    artifacts=[],
-    timestamps=raw_video_result["timestamps"],
-    warnings=raw_video_result["warnings"],
-    errors=raw_video_result["errors"],
-    model_versions=raw_video_result["model_versions"],
-)
+module_result = adapt_video_result(raw_video_result, analysis_id=analysis_id)
 ```
+
+The `adapt_video_result()` adapter function:
+- Converts all entries in `raw_video_result["evidence"]` (structured dicts, forensic statements, or `EvidenceItem` objects) into typed `EvidenceItem` instances.
+- Preserves exact descriptions, maps severity levels ("low", "medium", "high") to standard float values `[0.0, 1.0]`, preserves confidence and timestamps (or start/end interval bounds in `location`) wherever provided.
+- Copies structured timestamp segments into `module_result.timestamps`.
+- Maps pipeline status `"success"` → `ModuleStatus.SUCCESS`, `"insufficient_evidence"` → `ModuleStatus.UNAVAILABLE`, and other errors → `ModuleStatus.FAILED`.
+- Handles empty evidence without errors (returning an empty `evidence` list).
