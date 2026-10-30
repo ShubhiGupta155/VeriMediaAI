@@ -16,6 +16,12 @@ from modules.video.deepfake_detector import (
 )
 from modules.video.network.xception import Xception
 from modules.video.temporal_analysis import analyze_temporal_consistency
+from modules.video.timestamp_analyzer import (
+    extract_suspicious_timestamps,
+    format_timestamp_evidence,
+)
+from modules.video.pipeline import analyze_video
+from evaluation.video_eval import compute_binary_metrics, evaluate_video_dataset
 
 
 class TestVideoMetadataExtraction:
@@ -1108,6 +1114,208 @@ class TestTemporalAnalysis:
             min_duration=0.5,
         )
         assert len(res_custom["suspicious_segments"]) == 1
+
+
+class TestSuspiciousTimestampAnalyzer:
+    """Test suite for suspicious timestamp analyzer module."""
+
+    def test_extract_suspicious_timestamps_empty(self):
+        """Empty or invalid inputs return empty lists."""
+        assert extract_suspicious_timestamps({}) == []
+        assert extract_suspicious_timestamps({"suspicious_segments": []}) == []
+
+    def test_extract_suspicious_timestamps_non_dict_raises(self):
+        """Non-dict temporal result raises ValueError."""
+        with pytest.raises(ValueError, match="must be a dictionary"):
+            extract_suspicious_timestamps("not_a_dict")  # type: ignore
+
+    def test_extract_suspicious_timestamps_normal(self):
+        """Valid segments are formatted with accurate metadata and human-readable reasons."""
+        temp_result = {
+            "suspicious_segments": [
+                {
+                    "start_frame": 60,
+                    "end_frame": 120,
+                    "start_time_seconds": 2.0,
+                    "end_time_seconds": 4.0,
+                    "duration_seconds": 2.0,
+                    "frame_count": 3,
+                    "mean_fake_probability": 0.85,
+                    "peak_fake_probability": 0.92,
+                    "severity": "high",
+                },
+                {
+                    "start_frame": 180,
+                    "end_frame": 240,
+                    "start_time_seconds": 6.0,
+                    "end_time_seconds": 8.0,
+                    "duration_seconds": 2.0,
+                    "frame_count": 3,
+                    "mean_fake_probability": 0.68,
+                    "peak_fake_probability": 0.72,
+                    "severity": "medium",
+                },
+            ],
+            "temporal_inconsistency_score": 0.45,
+            "status": "complete",
+        }
+
+        intervals = extract_suspicious_timestamps(temp_result)
+        assert len(intervals) == 2
+
+        i0 = intervals[0]
+        assert i0["start_time_seconds"] == 2.0
+        assert i0["end_time_seconds"] == 4.0
+        assert i0["duration_seconds"] == 2.0
+        assert i0["start_frame"] == 60
+        assert i0["end_frame"] == 120
+        assert i0["frame_count"] == 3
+        assert i0["mean_fake_probability"] == 0.85
+        assert i0["peak_fake_probability"] == 0.92
+        assert i0["severity"] == "high"
+        assert "Sustained elevated deepfake indicators" in i0["reason"]
+
+        evidence = format_timestamp_evidence(intervals, inconsistency_score=0.45)
+        assert len(evidence) >= 3
+        assert "Identified 2 suspicious timestamp interval(s)" in evidence[0]
+        assert "Moderate temporal variation observed" in evidence[-1]
+
+    def test_min_severity_filtering(self):
+        """Severity filter restricts output to higher severity levels."""
+        temp_result = {
+            "suspicious_segments": [
+                {
+                    "start_frame": 0,
+                    "end_frame": 30,
+                    "start_time_seconds": 0.0,
+                    "end_time_seconds": 1.0,
+                    "mean_fake_probability": 0.55,
+                    "severity": "low",
+                },
+                {
+                    "start_frame": 60,
+                    "end_frame": 90,
+                    "start_time_seconds": 2.0,
+                    "end_time_seconds": 3.0,
+                    "mean_fake_probability": 0.88,
+                    "severity": "high",
+                },
+            ]
+        }
+        high_only = extract_suspicious_timestamps(temp_result, min_severity="high")
+        assert len(high_only) == 1
+        assert high_only[0]["severity"] == "high"
+
+
+class TestVideoPipeline:
+    """Test suite for complete end-to-end video forensics pipeline."""
+
+    @pytest.fixture
+    def dummy_checkpoint(self, tmp_path):
+        """Create a valid dummy state_dict checkpoint for testing."""
+        model = Xception(num_classes=2)
+        ckpt_path = tmp_path / "dummy_ff_xception.pth"
+        torch.save(model.state_dict(), ckpt_path)
+        return ckpt_path
+
+    @pytest.fixture
+    def synthetic_video(self, tmp_path):
+        """Create a synthetic 2-second 30fps video file."""
+        vid_path = tmp_path / "synthetic_test.mp4"
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(str(vid_path), fourcc, 30.0, (320, 240))
+        for _ in range(60):
+            frame = np.full((240, 320, 3), 128, dtype=np.uint8)
+            writer.write(frame)
+        writer.release()
+        return vid_path
+
+    def test_video_pipeline_missing_file_raises(self):
+        """Pipeline raises FileNotFoundError for non-existent video path."""
+        with pytest.raises(FileNotFoundError, match="Video file not found"):
+            analyze_video("non_existent_video_path.mp4")
+
+    def test_video_pipeline_missing_checkpoint_returns_insufficient_evidence(self, synthetic_video, monkeypatch):
+        """Pipeline returns insufficient_evidence when checkpoint is not provided or configured."""
+        monkeypatch.delenv("VERIMEDIA_XCEPTION_CHECKPOINT", raising=False)
+        # Clear cached model
+        from modules.video import deepfake_detector
+        deepfake_detector._loaded_model = None
+        deepfake_detector._loaded_model_path = None
+
+        result = analyze_video(synthetic_video, model_path=None)
+        assert result["module"] == "video"
+        assert result["status"] == "insufficient_evidence"
+        assert result["scores"] == {}
+        assert "No Xception checkpoint supplied or configured" in result["warnings"][0]
+
+    def test_video_pipeline_no_faces_detected(self, synthetic_video, dummy_checkpoint):
+        """Synthetic blank video contains no faces and returns insufficient_evidence without crashing."""
+        result = analyze_video(synthetic_video, model_path=dummy_checkpoint, sample_interval=0.5)
+        assert result["module"] == "video"
+        assert result["status"] == "insufficient_evidence"
+        assert result["scores"] == {}
+        assert result["frame_predictions"] == []
+        assert "No recognizable faces detected" in result["warnings"][0]
+        assert "No facial evidence detected" in result["evidence"][0]
+
+    def test_video_pipeline_with_detected_faces(self, synthetic_video, dummy_checkpoint, monkeypatch):
+        """When face detector detects faces, pipeline executes full inference and returns standardized schema."""
+        # Mock detect_faces to return a simulated face detection for frames
+        def mock_detect_faces(frame):
+            return [{"bbox": {"x": 50, "y": 50, "width": 80, "height": 80}, "confidence": 1.0, "face_id": 0}]
+
+        monkeypatch.setattr("modules.video.pipeline.detect_faces", mock_detect_faces)
+
+        result = analyze_video(
+            synthetic_video,
+            model_path=dummy_checkpoint,
+            sample_interval=0.5,
+            max_frames=4,
+        )
+
+        assert result["module"] == "video"
+        assert result["status"] == "success"
+        assert "suspicion_score" in result["scores"]
+        assert 0.0 <= result["scores"]["suspicion_score"] <= 1.0
+        assert "confidence" in result["scores"]
+        assert "peak_fake_probability" in result["scores"]
+        assert "temporal_inconsistency_score" in result["scores"]
+        assert len(result["frame_predictions"]) == 4
+        assert result["model_versions"]["deepfake_detector"] == "faceforensics++_xception"
+        assert isinstance(result["evidence"], list)
+        assert isinstance(result["timestamps"], list)
+
+
+class TestVideoEvaluation:
+    """Test suite for video evaluation metrics and runner."""
+
+    def test_compute_binary_metrics_perfect(self):
+        """Perfect predictions yield 1.0 precision, recall, and accuracy."""
+        m = compute_binary_metrics([1, 1, 0, 0], [1, 1, 0, 0])
+        assert m["accuracy"] == 1.0
+        assert m["precision"] == 1.0
+        assert m["recall"] == 1.0
+        assert m["f1_score"] == 1.0
+        assert m["false_positive_rate"] == 0.0
+        assert m["false_negative_rate"] == 0.0
+
+    def test_compute_binary_metrics_errors(self):
+        """Mismatched predictions calculate correct confusion matrix and error rates."""
+        m = compute_binary_metrics([1, 0], [0, 1])
+        assert m["accuracy"] == 0.0
+        assert m["false_positive_rate"] == 1.0
+        assert m["false_negative_rate"] == 1.0
+
+    def test_compute_binary_metrics_length_mismatch_raises(self):
+        """Different lengths raise ValueError."""
+        with pytest.raises(ValueError, match="Length mismatch"):
+            compute_binary_metrics([1], [1, 0])
+
+    def test_evaluate_video_dataset_missing_folder_raises(self):
+        """Non-existent dataset folder raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError, match="not found"):
+            evaluate_video_dataset("non_existent_folder_xyz")
 
 
 if __name__ == "__main__":
