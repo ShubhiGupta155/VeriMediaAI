@@ -145,8 +145,11 @@ module_result = adapt_video_result(raw_video_result, analysis_id=analysis_id)
 ```
 
 The `adapt_video_result()` adapter function:
-- Converts all entries in `raw_video_result["evidence"]` (structured dicts, forensic statements, or `EvidenceItem` objects) into typed `EvidenceItem` instances.
-- Preserves exact descriptions, maps severity levels ("low", "medium", "high") to standard float values `[0.0, 1.0]`, preserves confidence and timestamps (or start/end interval bounds in `location`) wherever provided.
-- Copies structured timestamp segments into `module_result.timestamps`.
+- Correlates pipeline interval statements with a unique structured interval using the emitted start/end times and frame bounds; ambiguous or unmatched interval statements are not assigned inferred interval metadata.
+- Preserves exact forensic statement descriptions while linking each statement to its interval's specific severity ("high" → 0.9, "medium" → 0.6, "low" → 0.3), interval mean fake probability as confidence, start timestamp as `timestamp_seconds`, and start/end time/frame bounds in `location`.
+- Populates only valid interval metadata; if required interval severity or confidence is missing or invalid, logs and omits that interval evidence rather than substituting fallback values.
+- Converts non-interval forensic statements (such as temporal instability indicators and summary statements) into corresponding `EvidenceItem` instances.
+- Also supports pre-structured evidence dictionaries and existing `EvidenceItem` objects for complete backward compatibility.
+- Preserves the separate list of structured timestamp interval dictionaries in `module_result.timestamps`.
 - Maps pipeline status `"success"` → `ModuleStatus.SUCCESS`, `"insufficient_evidence"` → `ModuleStatus.UNAVAILABLE`, and other errors → `ModuleStatus.FAILED`.
 - Handles empty evidence without errors (returning an empty `evidence` list).
