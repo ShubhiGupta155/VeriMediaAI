@@ -2,12 +2,15 @@
 
 from pathlib import Path
 from typing import Optional, Union
+import os
 import cv2
 import numpy as np
 import torch
 import torch.nn as nn
 
 from modules.video.network.xception import Xception
+
+CHECKPOINT_ENV_VAR = "VERIMEDIA_XCEPTION_CHECKPOINT"
 
 _loaded_model: Optional["DeepfakeModel"] = None
 _loaded_model_path: Optional[str] = None
@@ -117,8 +120,17 @@ def load_deepfake_model(
     model_path: Optional[Union[str, Path]] = None,
     device: Optional[str] = None,
 ) -> Optional[DeepfakeModel]:
-    """Load and cache FaceForensics++ Xception deepfake detector."""
+    """Load and cache FaceForensics++ Xception deepfake detector.
+
+    If model_path is None, checks the VERIMEDIA_XCEPTION_CHECKPOINT
+    environment variable before returning any cached instance.
+    """
     global _loaded_model, _loaded_model_path
+
+    if model_path is None:
+        env_path = os.environ.get(CHECKPOINT_ENV_VAR)
+        if env_path:
+            model_path = env_path
 
     if model_path is not None:
         path_str = str(model_path)
